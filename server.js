@@ -112,9 +112,6 @@ app.delete('/api/bookmarks/:id', (req, res) => {
 
 // --- Tasks ---
 app.get('/api/tasks', (req, res) => {
-    // This query fetches the task AND:
-    // 1. Calculates total seconds of COMPLETED sessions (past_duration)
-    // 2. Gets the start_time of the CURRENT active session (active_start)
     const sql = `
         SELECT t.*, 
             COALESCE((
@@ -127,7 +124,12 @@ app.get('/api/tasks', (req, res) => {
                 FROM task_sessions 
                 WHERE task_id = t.id AND end_time IS NULL 
                 LIMIT 1
-            ) as active_start
+            ) as active_start,
+            (
+                SELECT COUNT(id)
+                FROM task_sessions
+                WHERE task_id = t.id AND end_time IS NOT NULL
+            ) as break_count
         FROM tasks t
     `;
     
@@ -214,18 +216,45 @@ app.post('/api/notes', (req, res) => {
     });
 });
 
-app.put('/api/notes/:id', (req, res) => {
-    // UPDATED: Accepts folderId updates
-    const { title, content, folderId } = req.body;
-    
-    // Dynamic update query
-    let sql = "UPDATE notes SET title = COALESCE(?, title), content = COALESCE(?, content), folder_id = COALESCE(?, folder_id) WHERE id = ?";
-    let params = [title, content, folderId, req.params.id];
+app.put('/api/tasks/:id', (req, res) => {
+    const { title, status, due_date, notes, checklist } = req.body;
+    const taskId = req.params.id;
 
-    db.run(sql, params, (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Note saved" });
-    });
+    // Special Logic: If moving to 'done', calculate final time and append to notes.
+    if (status && status === 'done') {
+        db.get("SELECT * FROM tasks WHERE id = ?", [taskId], (err, task) => {
+            if (err || !task) return res.status(500).json({ error: "Task not found for completion." });
+            
+            // Calculate total time
+            const sqlTime = `SELECT SUM(strftime('%s', end_time) - strftime('%s', start_time)) as total FROM task_sessions WHERE task_id = ? AND end_time IS NOT NULL`;
+            db.get(sqlTime, [taskId], (err, timeRow) => {
+                const totalSeconds = timeRow ? timeRow.total : 0;
+                
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor((totalSeconds % 3600) / 60);
+                const s = totalSeconds % 60;
+                const timeString = `${h}h ${m}m ${s}s`;
+
+                const completionMessage = `\n\n<hr><p><em><strong>Completed on:</strong> ${new Date().toLocaleString()}<br><strong>Total Time Taken:</strong> ${timeString}</em></p>`;
+                
+                const newNotes = (task.notes || '') + completionMessage;
+                
+                // Final update query
+                const sql = "UPDATE tasks SET title = COALESCE(?, title), status = ?, due_date = COALESCE(?, due_date), notes = ?, checklist = COALESCE(?, checklist) WHERE id = ?";
+                db.run(sql, [title, status, due_date, newNotes, checklist, taskId], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ message: "Task completed and updated." });
+                });
+            });
+        });
+    } else {
+        // Standard update for any other change
+        const sql = "UPDATE tasks SET title = COALESCE(?, title), status = COALESCE(?, status), due_date = COALESCE(?, due_date), notes = COALESCE(?, notes), checklist = COALESCE(?, checklist) WHERE id = ?";
+        db.run(sql, [title, status, due_date, notes, checklist, taskId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Updated" });
+        });
+    }
 });
 
 /* ================= UPDATED ENRICHMENT LOGIC (NO X SCRAPING) ================= */

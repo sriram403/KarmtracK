@@ -7,6 +7,8 @@ let allNotesCache = [];
 let currentNoteFolder = null; // null = All
 let currentNoteSearch = '';
 let dashboardDate = new Date(); // Tracks the month currently being viewed
+let activeTaskData = null; // Holds the full data for the task in the modal
+let taskChecklist = []; // Holds the checklist items for the active task
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
@@ -37,6 +39,120 @@ function setViewFolder(id, name) {
     // Reload bookmarks to apply the filter
     loadBookmarks();
 }
+
+// Opens the modal and populates it
+async function openTaskModal(taskId) {
+    try {
+        // Find the full task data from the cache
+        const res = await fetch(`${API_BASE}/tasks`);
+        const tasks = await res.json();
+        activeTaskData = tasks.find(t => t.id === taskId);
+        
+        if (!activeTaskData) {
+            console.error("Task not found!");
+            return;
+        }
+
+        // 1. Populate Header
+        document.getElementById('task-modal-title').innerText = activeTaskData.title;
+
+        // 2. Populate Notes
+        document.getElementById('task-modal-notes').innerHTML = activeTaskData.notes || '';
+
+        // 3. Populate Stats
+        document.getElementById('task-stat-status').innerText = activeTaskData.status.charAt(0).toUpperCase() + activeTaskData.status.slice(1);
+        document.getElementById('task-stat-breaks').innerText = activeTaskData.break_count || '0';
+        const totalTime = (activeTaskData.past_duration || 0) + (activeTaskData.active_start ? (new Date() - new Date(activeTaskData.active_start + 'Z'))/1000 : 0);
+        document.getElementById('task-stat-time').innerText = formatTime(Math.floor(totalTime));
+        
+        // 4. Populate Checklist
+        taskChecklist = activeTaskData.checklist ? JSON.parse(activeTaskData.checklist) : [];
+        renderTaskChecklist();
+
+        // 5. Show Modal
+        document.getElementById('task-modal-backdrop').classList.remove('hidden');
+
+    } catch (err) {
+        console.error("Failed to open task modal", err);
+    }
+}
+
+// Closes the modal
+function closeTaskModal() {
+    activeTaskData = null;
+    document.getElementById('task-modal-backdrop').classList.add('hidden');
+}
+
+// Renders the checklist items from the `taskChecklist` array
+function renderTaskChecklist() {
+    const container = document.getElementById('task-modal-checklist');
+    const progressContainer = document.getElementById('task-modal-progress');
+    const progressFill = document.getElementById('task-modal-progress-fill');
+    const progressText = document.getElementById('task-modal-progress-text');
+
+    // Calculate and display progress
+    const progress = calculateChecklistProgress(taskChecklist);
+    
+    if (taskChecklist.length > 0) {
+        progressContainer.style.display = 'block';
+        progressFill.style.width = `${progress.percent}%`;
+        progressText.innerText = `${progress.percent}% (${progress.text})`;
+    } else {
+        progressContainer.style.display = 'none'; // Hide if no items
+    }
+
+    // Render the list items
+    container.innerHTML = '';
+    if (taskChecklist.length === 0) {
+        container.innerHTML = '<p style="color:#999; text-align:center;">No items yet.</p>';
+        return;
+    }
+
+    taskChecklist.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'checklist-item';
+        if (item.done) div.classList.add('checked');
+
+        div.innerHTML = `
+            <input type="checkbox" id="check-${index}" ${item.done ? 'checked' : ''} onchange="toggleChecklistItem(${index})">
+            <label for="check-${index}">${item.text}</label>
+            <button class="delete-checklist" onclick="deleteChecklistItem(${index})">&times;</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// Saves all details from the modal back to the server
+async function saveTaskDetails() {
+    if (!activeTaskData) return;
+
+    const newNotes = document.getElementById('task-modal-notes').innerHTML;
+    
+    const payload = {
+        notes: newNotes,
+        checklist: JSON.stringify(taskChecklist) // Save the checklist array as a string
+    };
+
+    try {
+        await fetch(`${API_BASE}/tasks/${activeTaskData.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        closeTaskModal();
+        loadTasks(); // Refresh the main view
+    } catch (err) {
+        console.error("Failed to save task details", err);
+    }
+}
+
+// Esc key to close modal
+document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape" && !document.getElementById('task-modal-backdrop').classList.contains('hidden')) {
+        closeTaskModal();
+    }
+});
 
 function changeDashMonth(offset) {
     dashboardDate.setMonth(dashboardDate.getMonth() + offset);
@@ -716,7 +832,7 @@ function renderTasks(tasks) {
     document.getElementById('task-list-done').innerHTML = '';
 
     tasks.forEach(task => {
-        // 2. Create the card container
+        // 2. Create the card container and set up modal click
         const card = document.createElement('div');
         card.className = 'task-card';
         card.style.background = '#fff';
@@ -724,77 +840,129 @@ function renderTasks(tasks) {
         card.style.marginBottom = '10px';
         card.style.borderRadius = '4px';
         card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-        
-        // 3. Status Controls (Move between columns)
+        card.style.cursor = 'pointer';
+
+        // Open modal only if not clicking a button or input
+        card.onclick = (e) => {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !e.target.closest('button')) {
+                openTaskModal(task.id);
+            }
+        };
+
+        // 3. --- DEFINE ALL UI PIECES ---
+
+        // Status Controls (for moving between columns)
         let controls = '';
         if (task.status === 'todo') {
-            controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Start Work &rarr;</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Start Work &rarr;</button>`;
         } else if (task.status === 'inprogress') {
-            controls = `<button onclick="updateTaskStatus(${task.id}, 'todo')" style="font-size:11px;">&larr; Back</button> <button onclick="updateTaskStatus(${task.id}, 'done')" style="font-size:11px;">Done &checkmark;</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'todo')" style="font-size:11px;">&larr; Back</button> <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'done')" style="font-size:11px;">Done &checkmark;</button>`;
         } else {
-            controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Reopen</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Reopen</button>`;
         }
 
-        // 4. Due Date Input
+        // Due Date Input
         let dateHtml = task.due_date 
-            ? `<input type="date" value="${task.due_date}" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666;">`
-            : `<input type="date" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#888;">`;
-
-        // 5. TIMER LOGIC (New Feature)
+            ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`
+            : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#888; cursor:pointer;">`;
+        
+        // Timer Controls
         const past = parseInt(task.past_duration) || 0;
-        let timeDisplayHtml = formatTime(past);
-        let activeAttr = '';
         let timerControls = '';
-
         if (task.active_start) {
-            // Timer is RUNNING
-            // We set data-active-start so the global interval can update this specific clock
-            activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}"`;
+            const activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}"`;
             timerControls = `
                 <div style="display:flex; align-items:center;">
                     <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:#007bff; margin-right:10px; font-size:12px;">Syncing...</span>
-                    <button onclick="stopTimer(${task.id})" style="border:1px solid #ff4444; background:#fff; color:#ff4444; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">⏸ Stop</button>
-                </div>
-            `;
+                    <button onclick="event.stopPropagation(); stopTimer(${task.id})" style="border:1px solid #ff4444; background:#fff; color:#ff4444; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">⏸ Stop</button>
+                </div>`;
         } else {
-            // Timer is STOPPED
             timerControls = `
                 <div style="display:flex; align-items:center;">
-                    <span class="task-timer-display" style="font-family:monospace; color:#666; margin-right:10px; font-size:12px;">${timeDisplayHtml}</span>
-                    <button onclick="startTimer(${task.id})" style="border:1px solid #28a745; background:#fff; color:#28a745; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">▶ Start</button>
-                    <button onclick="resetTimer(${task.id})" title="Reset Timer" style="border:none; background:none; color:#bbb; cursor:pointer; font-size:14px; margin-left:5px; padding:0;">↺</button>
-                </div>
-            `;
+                    <span class="task-timer-display" style="font-family:monospace; color:#666; margin-right:10px; font-size:12px;">${formatTime(past)}</span>
+                    <button onclick="event.stopPropagation(); startTimer(${task.id})" style="border:1px solid #28a745; background:#fff; color:#28a745; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">▶ Start</button>
+                    <button onclick="event.stopPropagation(); resetTimer(${task.id})" title="Reset Timer" style="border:none; background:none; color:#bbb; cursor:pointer; font-size:14px; margin-left:5px; padding:0;">↺</button>
+                </div>`;
         }
 
-        // 6. Build the Card HTML
+        // Checklist Progress Bar (only if checklist exists)
+        let checklistProgressHtml = '';
+        try {
+            const checklist = task.checklist ? JSON.parse(task.checklist) : [];
+            if (checklist.length > 0) {
+                const progress = calculateChecklistProgress(checklist);
+                checklistProgressHtml = `
+                    <div class="progress-bar-container" title="${progress.text} Completed" style="height:12px; margin-bottom:8px;">
+                        <div class="progress-bar-fill" style="width: ${progress.percent}%;"></div>
+                        <span class="progress-bar-text" style="font-size:8px;">${progress.percent}%</span>
+                    </div>`;
+            }
+        } catch (e) { /* malformed checklist JSON, ignore */ }
+        
+        // 4. --- ASSEMBLE THE FINAL CARD HTML ---
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="font-weight:bold; font-size:14px; margin-bottom:5px;">${task.title}</div>
                 <div style="font-size:12px; white-space:nowrap;">
-                    <button onclick='editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.6;">✏️</button>
-                    <button onclick="deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red; opacity:0.6;">🗑️</button>
+                    <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.6;">✏️</button>
+                    <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red; opacity:0.6;">🗑️</button>
                 </div>
             </div>
             
             <div style="margin-bottom:8px;">${dateHtml}</div>
 
-            <!-- Timer Section -->
+            ${checklistProgressHtml}
+
             <div style="background:#f9f9f9; padding:5px; border-radius:4px; margin-bottom:10px; border:1px solid #eee;">
                 ${timerControls}
             </div>
 
-            <!-- Status Buttons -->
             <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #eee;">
                 ${controls}
             </div>
         `;
 
-        // 7. Append to the correct column
+        // 5. Append to the correct column
         if (task.status === 'todo') document.getElementById('task-list-todo').appendChild(card);
         else if (task.status === 'inprogress') document.getElementById('task-list-progress').appendChild(card);
         else document.getElementById('task-list-done').appendChild(card);
     });
+}
+
+// Adds a new item to the checklist
+function addChecklistItem() {
+    const input = document.getElementById('task-checklist-input');
+    const text = input.value.trim();
+
+    if (text) {
+        taskChecklist.push({ text: text, done: false });
+        input.value = ''; // Clear the input
+        renderTaskChecklist(); // Re-render the list with the new item
+    }
+}
+
+function calculateChecklistProgress(checklistArray) {
+    if (!checklistArray || checklistArray.length === 0) {
+        return { percent: 0, text: '0/0' };
+    }
+    const total = checklistArray.length;
+    const done = checklistArray.filter(item => item.done).length;
+    const percent = Math.round((done / total) * 100);
+    return { percent, text: `${done}/${total}` };
+}
+
+// Toggles the 'done' status of an item
+function toggleChecklistItem(index) {
+    if (taskChecklist[index]) {
+        taskChecklist[index].done = !taskChecklist[index].done;
+        renderTaskChecklist(); // Re-render to show the change (e.g., line-through)
+    }
+}
+
+// Deletes an item from the checklist
+function deleteChecklistItem(index) {
+    taskChecklist.splice(index, 1); // Remove the item from the array
+    renderTaskChecklist(); // Re-render the list
 }
 
 function renderCalendarPreview(tasks) {

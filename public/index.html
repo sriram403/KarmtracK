@@ -38,7 +38,51 @@
         </nav>
 
         <main class="content">
-    
+            <!-- PASTE THIS RIGHT AFTER <main class="content"> -->
+            <div id="task-modal-backdrop" class="hidden">
+                <div id="task-modal-content">
+                    <!-- Header -->
+                    <div class="task-modal-header">
+                        <h2 id="task-modal-title">Task Title</h2>
+                        <button id="task-modal-close" onclick="closeTaskModal()"> &times; </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="task-modal-body">
+                        <!-- Left Side: Notes & Checklist -->
+                        <div class="task-modal-main">
+                            <h3>Notes</h3>
+                            <div id="task-modal-notes" class="block-editor" contenteditable="true"></div>
+                            
+                            <h3 style="margin-top:20px;">Checklist</h3>
+                            <div id="task-modal-progress" class="progress-bar-container">
+                            <div id="task-modal-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                            <span id="task-modal-progress-text" class="progress-bar-text">0%</span>
+                            </div>
+                            <div id="task-modal-checklist"></div>
+                            <div class="add-checklist-item">
+                                <input type="text" id="task-checklist-input" placeholder="New to-do item...">
+                                <button onclick="addChecklistItem()">Add</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Stats & Info -->
+                        <div class="task-modal-sidebar">
+                            <h4>Details</h4>
+                            <div id="task-modal-stats">
+                                <p><strong>Status:</strong> <span id="task-stat-status"></span></p>
+                                <p><strong>Breaks Taken:</strong> <span id="task-stat-breaks"></span></p>
+                                <p><strong>Time Logged:</strong> <span id="task-stat-time"></span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="task-modal-footer">
+                        <button onclick="saveTaskDetails()">Save & Close</button>
+                    </div>
+                </div>
+            </div>
             <!-- NEW: Search Results View -->
             <div id="view-search" class="view-section hidden">
                 <h1>Search Results</h1>
