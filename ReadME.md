@@ -101,5 +101,4 @@ All your precious data—every bookmark, task, and note—lives in a single file
 Want to back it up? **Just copy that file somewhere safe.** That's it. Your entire digital brain, saved.
 
 ---
-
 Now get out of here. Go track some karma. Or whatever. Just don't break anything.
