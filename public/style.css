@@ -57,3 +57,45 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); di
 .note-editor-area { flex: 1; background: var(--card); padding: 20px; display: flex; flex-direction: column; }
 #note-editor { flex: 1; border: 1px solid #eee; padding: 20px; margin-top: 10px; overflow-y: auto; outline: none; }
 #note-title-input { font-size: 1.5em; border: none; border-bottom: 1px solid #eee; padding: 5px; outline: none; }
+
+/* DASHBOARD CALENDAR */
+.cal-day-cell {
+    min-height: 100px;
+    border: 1px solid #eee;
+    padding: 5px;
+    background: #fff;
+    border-radius: 4px;
+    font-size: 14px;
+    position: relative;
+}
+
+.cal-day-cell:hover {
+    background: #f9f9f9;
+}
+
+.cal-day-number {
+    font-weight: bold;
+    color: #444;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.cal-day-cell.today {
+    border: 2px solid #007bff;
+}
+
+.cal-task-item {
+    font-size: 11px;
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.cal-task-done { background: #d4edda; color: #155724; text-decoration: line-through; }
+.cal-task-todo { background: #cce5ff; color: #004085; }
+.cal-task-prog { background: #fff3cd; color: #856404; }
+

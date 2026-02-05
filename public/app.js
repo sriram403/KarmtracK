@@ -6,6 +6,7 @@ let currentSearchTerm = ''; // Stores local search text
 let allNotesCache = [];
 let currentNoteFolder = null; // null = All
 let currentNoteSearch = '';
+let dashboardDate = new Date(); // Tracks the month currently being viewed
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
@@ -37,6 +38,87 @@ function setViewFolder(id, name) {
     loadBookmarks();
 }
 
+function changeDashMonth(offset) {
+    dashboardDate.setMonth(dashboardDate.getMonth() + offset);
+    loadDashboard(); // Reloads data and redraws calendar
+}
+
+function renderDashboardCalendar(tasks) {
+    const grid = document.getElementById('dash-cal-grid');
+    const title = document.getElementById('dash-cal-title');
+    
+    if (!grid || !title) return; // Guard clause in case we aren't on dashboard
+    
+    grid.innerHTML = '';
+    
+    const year = dashboardDate.getFullYear();
+    const month = dashboardDate.getMonth();
+    
+    // Update Title
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    title.innerText = `${monthNames[month]} ${year}`;
+
+    // Date Maths
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayIndex = firstDay.getDay(); // 0 (Sun) - 6 (Sat)
+
+    // 1. Padding Days (Empty cells before the 1st)
+    for (let i = 0; i < startDayIndex; i++) {
+        const blank = document.createElement('div');
+        blank.className = 'cal-day-cell';
+        blank.style.background = '#fcfcfc'; // Slightly darker to indicate disabled
+        grid.appendChild(blank);
+    }
+
+    // 2. Actual Days
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-day-cell';
+        
+        // Generate YYYY-MM-DD string for this cell to match DB format
+        // IMPORTANT: month is 0-indexed in JS, but 1-indexed in YYYY-MM-DD
+        const currentMonthStr = (month + 1).toString().padStart(2, '0');
+        const currentDayStr = day.toString().padStart(2, '0');
+        const dateStr = `${year}-${currentMonthStr}-${currentDayStr}`;
+
+        if (dateStr === todayStr) cell.classList.add('today');
+
+        // Day Number
+        const num = document.createElement('span');
+        num.className = 'cal-day-number';
+        num.innerText = day;
+        cell.appendChild(num);
+
+        // Find tasks for this day
+        const daysTasks = tasks.filter(t => t.due_date === dateStr);
+        
+        daysTasks.forEach(t => {
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'cal-task-item';
+            
+            if (t.status === 'done') taskDiv.classList.add('cal-task-done');
+            else if (t.status === 'inprogress') taskDiv.classList.add('cal-task-prog');
+            else taskDiv.classList.add('cal-task-todo');
+
+            taskDiv.innerText = t.title;
+            taskDiv.title = t.title; // Tooltip
+            
+            // Clicking jumps to task tab (simple UX)
+            taskDiv.onclick = () => {
+                switchTab('tasks');
+                // Optional: You could scroll to the task here if you wanted
+            };
+            
+            cell.appendChild(taskDiv);
+        });
+
+        grid.appendChild(cell);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initial data load for the dashboard view
@@ -889,28 +971,20 @@ function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(sav
    ================================================================= */
 
 async function loadDashboard() {
+    // Fetch Data
     const [resTasks, resBms] = await Promise.all([fetch(`${API_BASE}/tasks`), fetch(`${API_BASE}/bookmarks`)]);
     const tasks = await resTasks.json();
     const bookmarks = await resBms.json();
 
+    // Update Text Stats
     document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length} Pending`;
     document.getElementById('dash-bm-count').innerText = `${bookmarks.length} Total`;
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayTasks = tasks.filter(t => t.due_date === todayStr && t.status !== 'done');
-    
-    let agendaHtml = `<h3>Today's Agenda</h3>`;
-    if(todayTasks.length === 0) agendaHtml += `<p style="color:#888">Nothing due today.</p>`;
-    else todayTasks.forEach(t => agendaHtml += `<div class="agenda-item">${t.title}</div>`);
-    
-    let agendaContainer = document.getElementById('dash-agenda');
-    if(!agendaContainer) {
-        agendaContainer = document.createElement('div');
-        agendaContainer.id = 'dash-agenda';
-        agendaContainer.style.marginTop = '20px';
-        document.querySelector('.stats-container').after(agendaContainer);
-    }
-    agendaContainer.innerHTML = agendaHtml;
+    // RENDER CALENDAR
+    renderDashboardCalendar(tasks);
+
+    // (You can remove the old "Today's Agenda" code below this if you want, 
+    // since the calendar now shows today's tasks visually)
 }
 
 let searchDebounce;

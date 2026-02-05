@@ -46,12 +46,36 @@
             </div>
             <!-- Dashboard View -->
             <div id="view-dashboard" class="view-section active">
-                <h1>Dashboard</h1>
-                <div class="stats-container">
-                    <div class="stat-card"><h3>Tasks Today</h3><p id="dash-task-count">0</p></div>
-                    <div class="stat-card"><h3>Recent Bookmarks</h3><p id="dash-bm-count">0</p></div>
+            <h1>Dashboard</h1>
+            
+            <!-- Top Stats -->
+            <div class="stats-container">
+                <div class="stat-card"><h3>Tasks Pending</h3><p id="dash-task-count">0</p></div>
+                <div class="stat-card"><h3>Total Bookmarks</h3><p id="dash-bm-count">0</p></div>
+            </div>
+
+            <!-- NEW: Calendar Section -->
+            <div class="dashboard-calendar-wrapper" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <div class="cal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <button onclick="changeDashMonth(-1)" style="cursor:pointer; padding:5px 15px;">&lt; Prev</button>
+                    <h2 id="dash-cal-title" style="margin: 0;">Month Year</h2>
+                    <button onclick="changeDashMonth(1)" style="cursor:pointer; padding:5px 15px;">Next &gt;</button>
+                </div>
+                
+                <!-- Days of Week Header -->
+                <div class="cal-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 10px; color: #666;">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+
+                <!-- The Days Grid -->
+                <div id="dash-cal-grid" class="cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;">
+                    <!-- Javascript will fill this -->
                 </div>
             </div>
+
+            <!-- Old Agenda (Optional, we can keep it below or remove it. I'll leave a container just in case) -->
+            <div id="dash-agenda" style="margin-top: 20px;"></div>
+        </div>
 
             <!-- Bookmarks View -->
             <div id="view-bookmarks" class="view-section hidden">
