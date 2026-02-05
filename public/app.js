@@ -112,22 +112,8 @@ function renderBookmarks(bookmarks) {
         const div = document.createElement('div');
         div.className = 'bm-item'; 
 
+        // --- COMMON DATA PREPARATION ---
         const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
-        let mediaHtml = '';
-
-        if (isTwitter && currentBmView === 'grid') {
-            if (navigator.onLine) {
-                const embedUrl = bm.url.replace('x.com', 'twitter.com');
-                mediaHtml = `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${embedUrl}"></a></blockquote></div>`;
-            } else {
-                mediaHtml = `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
-            }
-        } else {
-            if (bm.thumbnail && bm.thumbnail.startsWith('http')) {
-                mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
-            }
-        }
-
         let tagsHtml = '';
         if (bm.tags && bm.tags.length > 0) {
             tagsHtml = '<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">';
@@ -136,19 +122,48 @@ function renderBookmarks(bookmarks) {
             });
             tagsHtml += '</div>';
         }
-
         const descHtml = (bm.description && bm.description !== "Pending...") 
             ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` 
             : '';
 
+        // --- RENDER BASED ON VIEW ---
         if (currentBmView === 'grid') {
+            let mediaHtml = '';
+            if (isTwitter) {
+                if (navigator.onLine) {
+                    const embedUrl = bm.url.replace('x.com', 'twitter.com');
+                    mediaHtml = `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${embedUrl}"></a></blockquote></div>`;
+                } else {
+                    mediaHtml = `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
+                }
+            } else if (bm.thumbnail && bm.thumbnail.startsWith('http')) {
+                mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
+            }
+            
             div.innerHTML = `
                 ${mediaHtml}
                 <h4 style="margin:10px 0 5px 0; font-size:14px;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title || 'Untitled'}</a></h4>
                 ${descHtml}
                 ${tagsHtml}
                 <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
-                    <!-- NEW: Edit Button -->
+                    <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                    <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+                </div>
+            `;
+        } else { // <<<<<<<<<<<<<<< FIX: ADDED THIS 'ELSE' BLOCK FOR LIST VIEW
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+            div.style.padding = '10px';
+            div.style.borderBottom = '1px solid #eee';
+
+            div.innerHTML = `
+                <div style="flex: 1; overflow: hidden; margin-right: 15px;">
+                    <a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333; font-weight:bold; white-space:nowrap; text-overflow: ellipsis; overflow: hidden; display: block;">${bm.title || bm.url}</a>
+                    ${descHtml}
+                    ${tagsHtml}
+                </div>
+                <div style="display:flex; gap:5px;">
                     <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
                     <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
                 </div>
@@ -494,13 +509,20 @@ function getTypeColor(type) {
 /* ================= NEW EDIT/DELETE HELPER FUNCTIONS ================= */
 
 async function editBookmark(bm) {
+    // FIX: Prompt for Title and Idea in addition to Tags
+    const newTitle = prompt("Edit Title:", bm.title || '');
+    if (newTitle === null) return; // User cancelled
+
+    const newDesc = prompt("Edit Possible Idea:", bm.description && bm.description !== "Pending..." ? bm.description : '');
+    if (newDesc === null) return; // User cancelled
+
     const currentTags = bm.tags ? bm.tags.join(', ') : '';
     const newTags = prompt("Edit tags (comma-separated):", currentTags);
     if (newTags === null) return; // User cancelled
 
     const payload = {
-        title: bm.title, // Keep existing data
-        description: bm.description,
+        title: newTitle.trim(),
+        description: newDesc.trim(),
         tags: newTags.split(',').map(t => t.trim().toLowerCase())
     };
 
