@@ -49,11 +49,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // GLOBAL CLOCK TICKER (Updates UI every second)
+    setInterval(() => {
+        const activeTimers = document.querySelectorAll('.task-timer-display[data-active-start]');
+        activeTimers.forEach(el => {
+            const startStr = el.getAttribute('data-active-start');
+            const pastSeconds = parseInt(el.getAttribute('data-past-duration')) || 0;
+            
+            // Calculate distinct UTC offset adjustment to handle local browser time vs UTC DB time
+            const startDate = new Date(startStr + "Z"); // Append Z to treat DB time as UTC
+            const now = new Date();
+            const elapsedSinceStart = Math.floor((now - startDate) / 1000);
+            
+            const totalSeconds = pastSeconds + elapsedSinceStart;
+            el.innerText = formatTime(totalSeconds);
+        });
+    }, 1000);
+
     const editor = document.getElementById('note-editor');
     const titleInput = document.getElementById('note-title-input');
     if (editor) editor.addEventListener('input', triggerAutoSave);
     if (titleInput) titleInput.addEventListener('input', triggerAutoSave);
 });
+
+// Helper function to format seconds into HH:MM:SS
+function formatTime(seconds) {
+    if(seconds < 0) seconds = 0;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}h ${m}m ${s}s`;
+}
+
+async function startTimer(taskId) {
+    await fetch(`${API_BASE}/tasks/${taskId}/timer/start`, { method: 'POST' });
+    loadTasks();
+}
+
+async function stopTimer(taskId) {
+    await fetch(`${API_BASE}/tasks/${taskId}/timer/stop`, { method: 'POST' });
+    loadTasks();
+}
+
+async function resetTimer(taskId) {
+    if(!confirm("Reset timer? This will erase all time logs for this task.")) return;
+    await fetch(`${API_BASE}/tasks/${taskId}/timer/reset`, { method: 'POST' });
+    loadTasks();
+}
 
 function switchTab(tabName) {
     // Hide all main content sections
@@ -586,11 +628,13 @@ async function updateTaskDate(id, dateStr) {
 }
 
 function renderTasks(tasks) {
+    // 1. Clear the current lists
     document.getElementById('task-list-todo').innerHTML = '';
     document.getElementById('task-list-progress').innerHTML = '';
     document.getElementById('task-list-done').innerHTML = '';
 
     tasks.forEach(task => {
+        // 2. Create the card container
         const card = document.createElement('div');
         card.className = 'task-card';
         card.style.background = '#fff';
@@ -599,27 +643,72 @@ function renderTasks(tasks) {
         card.style.borderRadius = '4px';
         card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
         
+        // 3. Status Controls (Move between columns)
         let controls = '';
-        if (task.status === 'todo') controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')">Start &rarr;</button>`;
-        else if (task.status === 'inprogress') controls = `<button onclick="updateTaskStatus(${task.id}, 'todo')">&larr; Back</button> <button onclick="updateTaskStatus(${task.id}, 'done')">Done &checkmark;</button>`;
-        else controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')">Reopen</button>`;
+        if (task.status === 'todo') {
+            controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Start Work &rarr;</button>`;
+        } else if (task.status === 'inprogress') {
+            controls = `<button onclick="updateTaskStatus(${task.id}, 'todo')" style="font-size:11px;">&larr; Back</button> <button onclick="updateTaskStatus(${task.id}, 'done')" style="font-size:11px;">Done &checkmark;</button>`;
+        } else {
+            controls = `<button onclick="updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Reopen</button>`;
+        }
 
+        // 4. Due Date Input
         let dateHtml = task.due_date 
-            ? `<input type="date" value="${task.due_date}" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent;">`
-            : `<input type="date" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent;">`;
+            ? `<input type="date" value="${task.due_date}" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666;">`
+            : `<input type="date" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#888;">`;
 
+        // 5. TIMER LOGIC (New Feature)
+        const past = parseInt(task.past_duration) || 0;
+        let timeDisplayHtml = formatTime(past);
+        let activeAttr = '';
+        let timerControls = '';
+
+        if (task.active_start) {
+            // Timer is RUNNING
+            // We set data-active-start so the global interval can update this specific clock
+            activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}"`;
+            timerControls = `
+                <div style="display:flex; align-items:center;">
+                    <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:#007bff; margin-right:10px; font-size:12px;">Syncing...</span>
+                    <button onclick="stopTimer(${task.id})" style="border:1px solid #ff4444; background:#fff; color:#ff4444; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">⏸ Stop</button>
+                </div>
+            `;
+        } else {
+            // Timer is STOPPED
+            timerControls = `
+                <div style="display:flex; align-items:center;">
+                    <span class="task-timer-display" style="font-family:monospace; color:#666; margin-right:10px; font-size:12px;">${timeDisplayHtml}</span>
+                    <button onclick="startTimer(${task.id})" style="border:1px solid #28a745; background:#fff; color:#28a745; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">▶ Start</button>
+                    <button onclick="resetTimer(${task.id})" title="Reset Timer" style="border:none; background:none; color:#bbb; cursor:pointer; font-size:14px; margin-left:5px; padding:0;">↺</button>
+                </div>
+            `;
+        }
+
+        // 6. Build the Card HTML
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-weight:bold;">${task.title}</div>
-                <div style="font-size:12px;">
-                    <button onclick='editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer;">✏️</button>
-                    <button onclick="deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red;">🗑️</button>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="font-weight:bold; font-size:14px; margin-bottom:5px;">${task.title}</div>
+                <div style="font-size:12px; white-space:nowrap;">
+                    <button onclick='editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.6;">✏️</button>
+                    <button onclick="deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red; opacity:0.6;">🗑️</button>
                 </div>
             </div>
-            ${dateHtml}
-            <div style="margin-top:10px;">${controls}</div>
+            
+            <div style="margin-bottom:8px;">${dateHtml}</div>
+
+            <!-- Timer Section -->
+            <div style="background:#f9f9f9; padding:5px; border-radius:4px; margin-bottom:10px; border:1px solid #eee;">
+                ${timerControls}
+            </div>
+
+            <!-- Status Buttons -->
+            <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #eee;">
+                ${controls}
+            </div>
         `;
 
+        // 7. Append to the correct column
         if (task.status === 'todo') document.getElementById('task-list-todo').appendChild(card);
         else if (task.status === 'inprogress') document.getElementById('task-list-progress').appendChild(card);
         else document.getElementById('task-list-done').appendChild(card);

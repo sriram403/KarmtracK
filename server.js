@@ -112,7 +112,26 @@ app.delete('/api/bookmarks/:id', (req, res) => {
 
 // --- Tasks ---
 app.get('/api/tasks', (req, res) => {
-    db.all("SELECT * FROM tasks", [], (err, rows) => {
+    // This query fetches the task AND:
+    // 1. Calculates total seconds of COMPLETED sessions (past_duration)
+    // 2. Gets the start_time of the CURRENT active session (active_start)
+    const sql = `
+        SELECT t.*, 
+            COALESCE((
+                SELECT SUM(strftime('%s', end_time) - strftime('%s', start_time)) 
+                FROM task_sessions 
+                WHERE task_id = t.id AND end_time IS NOT NULL
+            ), 0) as past_duration,
+            (
+                SELECT start_time 
+                FROM task_sessions 
+                WHERE task_id = t.id AND end_time IS NULL 
+                LIMIT 1
+            ) as active_start
+        FROM tasks t
+    `;
+    
+    db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -126,12 +145,47 @@ app.post('/api/tasks', (req, res) => {
     });
 });
 
-app.put('/api/tasks/:id', (req, res) => {
-    const { status, due_date } = req.body;
-    let sql = "UPDATE tasks SET status = COALESCE(?, status), due_date = COALESCE(?, due_date) WHERE id = ?";
-    db.run(sql, [status, due_date, req.params.id], function(err) {
+// START TIMER
+app.post('/api/tasks/:id/timer/start', (req, res) => {
+    const taskId = req.params.id;
+    // Only start if there isn't already one running
+    db.get("SELECT id FROM task_sessions WHERE task_id = ? AND end_time IS NULL", [taskId], (err, row) => {
+        if(row) return res.json({ message: "Timer already running" });
+        
+        db.run("INSERT INTO task_sessions (task_id, start_time) VALUES (?, CURRENT_TIMESTAMP)", [taskId], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Timer started" });
+        });
+    });
+});
+
+// STOP TIMER
+app.post('/api/tasks/:id/timer/stop', (req, res) => {
+    const taskId = req.params.id;
+    db.run("UPDATE task_sessions SET end_time = CURRENT_TIMESTAMP WHERE task_id = ? AND end_time IS NULL", [taskId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Updated" });
+        res.json({ message: "Timer stopped" });
+    });
+});
+
+// RESET TIMER (Deletes history for this task)
+app.post('/api/tasks/:id/timer/reset', (req, res) => {
+    const taskId = req.params.id;
+    db.run("DELETE FROM task_sessions WHERE task_id = ?", [taskId], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Timer history deleted" });
+    });
+});
+
+// Also update DELETE TASK to clean up sessions
+app.delete('/api/tasks/:id', (req, res) => {
+    const id = req.params.id;
+    db.serialize(() => {
+        db.run("DELETE FROM task_sessions WHERE task_id = ?", id); // Clean logs
+        db.run("DELETE FROM tasks WHERE id = ?", id, (err) => { // Delete task
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Task deleted" });
+        });
     });
 });
 
