@@ -306,3 +306,148 @@ button {
     border-color: var(--primary-red);
     color: var(--primary-red);
 }
+
+/* ======================================= */
+/* --- TASK MODAL UI OVERHAUL (FLOATING) --- */
+/* ======================================= */
+
+/* 1. The Backdrop: Making it a true overlay */
+#task-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px); /* Frosted glass effect */
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Animation Control */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Show the modal with animation */
+#task-modal-backdrop:not(.hidden) {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* 2. The Content Window: Styling the container */
+#task-modal-content {
+    width: 90%;
+    max-width: 900px;
+    height: 75vh;
+    box-shadow: 0 0 50px rgba(5, 217, 232, 0.3); /* Stronger cyan glow */
+    border: 2px solid var(--accent-cyan);
+    display: flex;
+    flex-direction: column;
+
+    /* Entry Animation */
+    transform: scale(0.95);
+    transition: transform 0.3s ease-in-out;
+}
+
+#task-modal-backdrop:not(.hidden) #task-modal-content {
+    transform: scale(1);
+}
+
+/* 3. Header & "Slick" Close Button */
+.task-modal-header {
+    position: relative; /* Needed to position the close button */
+    padding-right: 60px; /* Make space for the close button */
+    border-bottom: 1px solid #333;
+}
+
+#task-modal-title {
+    font-size: 1.8rem;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 8px var(--accent-cyan);
+}
+
+#task-modal-close {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    color: white;
+    border: 1px solid #444;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#task-modal-close:hover {
+    background: var(--primary-red);
+    border-color: var(--primary-red);
+    transform: translateY(-50%) scale(1.1) rotate(90deg);
+}
+
+/* 4. Body Sections: Clear Distinctions */
+.task-modal-body {
+    flex: 1;
+    display: flex;
+    overflow-y: hidden; /* Prevent double scrollbars */
+}
+
+/* Left side for notes/checklist */
+.task-modal-main {
+    flex: 2;
+    padding: 25px;
+    border-right: 1px solid #333;
+    overflow-y: auto; /* Allow this part to scroll */
+}
+
+/* Right side for metadata */
+.task-modal-sidebar {
+    flex: 1;
+    background: #111; /* Darker background for distinction */
+    padding: 25px;
+}
+
+/* Section Titles */
+.task-modal-main h3, .task-modal-sidebar h4 {
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.task-modal-main h3:not(:first-child) {
+    margin-top: 30px; /* Add space between sections */
+}
+
+/* Metadata Styling */
+#task-modal-stats p {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 15px;
+    border-bottom: 1px dashed #222;
+    padding-bottom: 10px;
+}
+#task-modal-stats strong {
+    color: var(--text-muted);
+    font-weight: normal;
+}
+#task-modal-stats span {
+    font-weight: bold;
+    color: white;
+    font-family: 'Space Grotesk', monospace;
+}
