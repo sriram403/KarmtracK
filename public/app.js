@@ -1320,3 +1320,49 @@ function getTypeColor(type) {
     if(type === 'note') return '#ffc107';
     return '#ccc';
 }
+
+/* ================= CSV IMPORT / EXPORT ================= */
+
+function exportBookmarks() {
+    window.location.href = `${API_BASE}/export/bookmarks`;
+}
+
+async function importBookmarks(inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    if (!confirm("Import bookmarks from CSV? \n\nNote: Duplicate URLs might be added. Existing data will NOT be deleted.")) {
+        inputElement.value = ''; // Reset
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const csvContent = e.target.result;
+        
+        try {
+            const res = await fetch(`${API_BASE}/import/bookmarks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ csvData: csvContent })
+            });
+            
+            const result = await res.json();
+            alert("Import started! It may take a few seconds to organize folders and tags. The list will refresh automatically.");
+            
+            // Wait a moment for DB to churn then refresh
+            setTimeout(() => {
+                loadFolders(); // In case new folders were created
+                loadTags();    // In case new tags were created
+                loadBookmarks();
+            }, 1500);
+
+        } catch (err) {
+            console.error(err);
+            alert("Error importing CSV.");
+        }
+    };
+    
+    reader.readAsText(file);
+    inputElement.value = ''; // Reset input so same file can be selected again if needed
+}

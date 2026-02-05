@@ -23,12 +23,13 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 function initDb() {
     db.serialize(() => {
-        // NEW: Folders table
+        // 1. FOLDERS
         db.run(`CREATE TABLE IF NOT EXISTS folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL
         )`);
 
+        // 2. BOOKMARKS
         db.run(`CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
@@ -40,12 +41,43 @@ function initDb() {
             FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
         )`);
 
-        // (Your other tables: tasks, notes, etc. remain unchanged)
-        db.run(`CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, status TEXT DEFAULT 'todo', due_date TEXT, checklist TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_encrypted INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        // 3. TASKS (Updated with 'notes' column)
+        db.run(`CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            title TEXT NOT NULL, 
+            status TEXT DEFAULT 'todo', 
+            due_date TEXT, 
+            checklist TEXT, 
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // 4. TASK SESSIONS (Critical for Timers - Missing previously)
+        db.run(`CREATE TABLE IF NOT EXISTS task_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            start_time DATETIME,
+            end_time DATETIME,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        )`);
+
+        // 5. NOTES (Updated with 'folder_id')
+        db.run(`CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            title TEXT, 
+            content TEXT, 
+            is_encrypted INTEGER DEFAULT 0, 
+            folder_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
+        )`);
+
+        // 6. TAGS & LINKS
         db.run(`CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)`);
         db.run(`CREATE TABLE IF NOT EXISTS item_tags (item_id INTEGER, item_type TEXT, tag_id INTEGER, PRIMARY KEY (item_id, item_type, tag_id), FOREIGN KEY (tag_id) REFERENCES tags(id))`);
         db.run(`CREATE TABLE IF NOT EXISTS links (source_id INTEGER, source_type TEXT, target_id INTEGER, target_type TEXT)`);
+        
+        console.log("Database initialized with full modern schema.");
     });
 }
 
@@ -493,6 +525,142 @@ app.delete('/api/folders/:id', (req, res) => {
             });
         });
     });
+});
+
+/* ================= CSV EXPORT/IMPORT ROUTES ================= */
+
+// 1. EXPORT BOOKMARKS TO CSV
+app.get('/api/export/bookmarks', (req, res) => {
+    const sql = `
+        SELECT b.url, b.title, b.description, f.name as folder_name, GROUP_CONCAT(t.name) as tags
+        FROM bookmarks b
+        LEFT JOIN folders f ON b.folder_id = f.id
+        LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
+        LEFT JOIN tags t ON it.tag_id = t.id
+        GROUP BY b.id
+        ORDER BY b.created_at DESC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // Header Row
+        let csvContent = "URL,Title,Description,Tags,Folder\n";
+
+        // Data Rows
+        rows.forEach(row => {
+            // Helper to escape quotes and wrap in quotes
+            const escape = (txt) => {
+                if (!txt) return "";
+                return `"${txt.toString().replace(/"/g, '""')}"`; // CSV standard escaping
+            };
+
+            const line = [
+                escape(row.url),
+                escape(row.title),
+                escape(row.description),
+                escape(row.tags), // Tags will come out like "tag1,tag2" inside the quotes
+                escape(row.folder_name)
+            ].join(",");
+
+            csvContent += line + "\n";
+        });
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment('karmtrack_bookmarks.csv');
+        res.send(csvContent);
+    });
+});
+
+// 2. IMPORT BOOKMARKS FROM CSV (Robust Version)
+app.post('/api/import/bookmarks', (req, res) => {
+    const { csvData } = req.body;
+    if (!csvData) return res.status(400).json({ error: "No CSV data provided" });
+
+    // Helper: Parse CSV Line
+    const parseCSVLine = (text) => {
+        const result = [];
+        let cur = '';
+        let inQuote = false;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (char === '"') { inQuote = !inQuote; }
+            else if (char === ',' && !inQuote) { result.push(cur); cur = ''; }
+            else { cur += char; }
+        }
+        result.push(cur);
+        return result.map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+    };
+
+    const lines = csvData.split(/\r?\n/);
+    const parsedRows = [];
+    const uniqueFolders = new Set();
+
+    // 1. First Pass: Parse data and collect unique Folder names
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const cols = parseCSVLine(lines[i]);
+        const url = cols[0];
+        if (!url) continue;
+
+        const row = {
+            url: url,
+            title: cols[1] || url,
+            desc: cols[2] || "",
+            tags: cols[3] || "",
+            folderName: cols[4] || ""
+        };
+
+        parsedRows.push(row);
+        if (row.folderName) uniqueFolders.add(row.folderName);
+    }
+
+    db.serialize(() => {
+        // 2. Insert all Folders first (safely ignoring duplicates)
+        const folderStmt = db.prepare("INSERT OR IGNORE INTO folders (name) VALUES (?)");
+        uniqueFolders.forEach(name => folderStmt.run(name));
+        folderStmt.finalize();
+
+        // 3. Fetch all Folder IDs (Map Name -> ID)
+        db.all("SELECT id, name FROM folders", (err, dbFolders) => {
+            const folderMap = {};
+            if (dbFolders) {
+                dbFolders.forEach(f => folderMap[f.name] = f.id);
+            }
+
+            // 4. Insert Bookmarks
+            const tagInsertStmt = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
+
+            parsedRows.forEach(row => {
+                const folderId = folderMap[row.folderName] || null;
+
+                db.run("INSERT INTO bookmarks (url, title, description, folder_id) VALUES (?, ?, ?, ?)", 
+                    [row.url, row.title, row.desc, folderId], 
+                    function(err) {
+                        if (!err) {
+                            const bmId = this.lastID;
+                            // 5. Handle Tags
+                            if (row.tags) {
+                                const tags = row.tags.split(',').map(t => t.trim());
+                                tags.forEach(tag => {
+                                    if (tag) {
+                                        tagInsertStmt.run(tag);
+                                        db.run("INSERT INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', (SELECT id FROM tags WHERE name = ?))", [bmId, tag]);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                );
+            });
+            
+            // Note: We finalize inside the loop logic in a real app, 
+            // but for this simple sync flow, we let garbage collection handle statement cleanup or finalize specifically if needed.
+        });
+    });
+
+    res.json({ message: "Import process started." });
 });
 
 app.listen(PORT, () => {
