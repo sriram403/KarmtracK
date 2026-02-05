@@ -86,6 +86,13 @@
                         <button onclick="toggleBmView('grid')"><span class="material-icons">grid_view</span></button>
                     </div>
                 </div>
+                <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px; background: #fff; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <span class="material-icons" style="color: #888;">search</span>
+                <input type="text" 
+                    placeholder="Filter bookmarks in current view (by title, tag, or description)..." 
+                    onkeyup="filterBookmarksLocally(this.value)"
+                    style="border: none; outline: none; flex: 1; font-size: 15px; background: transparent;">
+                </div>
                 <div id="bookmark-list"></div>
             </div>
 

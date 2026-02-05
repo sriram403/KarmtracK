@@ -1,9 +1,39 @@
 const API_BASE = 'http://localhost:3000/api';
 let currentBmView = 'grid'; // Default to grid
-
+let currentFolderFilter = null; // null = View All, integer = specific folder ID
+let allBookmarksCache = []; // Stores raw data from API
+let currentSearchTerm = ''; // Stores local search text
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
+
+function setViewFolder(id, name) {
+    currentFolderFilter = id;
+    const header = document.querySelector('#view-bookmarks h1');
+    
+    // Update the visual header
+    if (currentFolderFilter) {
+        header.textContent = `Folder: ${name}`;
+        // Add a "Back to All" button dynamically if it doesn't exist
+        if (!document.getElementById('back-to-all-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'back-to-all-btn';
+            btn.textContent = '← View All';
+            btn.style.fontSize = '12px'; 
+            btn.style.marginLeft = '10px';
+            btn.style.padding = '5px 10px';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => setViewFolder(null, 'All');
+            header.appendChild(btn);
+        }
+    } else {
+        header.textContent = 'Bookmarks';
+    }
+    
+    // Reload bookmarks to apply the filter
+    loadBookmarks();
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initial data load for the dashboard view
@@ -76,9 +106,13 @@ async function addBookmark() {
 async function loadBookmarks() {
     try {
         const res = await fetch(`${API_BASE}/bookmarks`);
-        const bookmarks = await res.json();
-        renderBookmarks(bookmarks);
+        allBookmarksCache = await res.json(); // Store in cache
+        renderBookmarks(); // Render using the cache
     } catch (err) { console.error("Failed to load bookmarks", err); }
+}
+function filterBookmarksLocally(query) {
+    currentSearchTerm = query.toLowerCase();
+    renderBookmarks();
 }
 
 async function editBookmark(bm) {
@@ -112,73 +146,123 @@ function toggleBmView(view) {
     loadBookmarks();
 }
 
-function renderBookmarks(bookmarks) {
+function renderBookmarks() {
+    // Note: We don't pass 'bookmarks' as argument anymore, we use 'allBookmarksCache'
     const mainContainer = document.getElementById('bookmark-list');
     mainContainer.innerHTML = '';
     mainContainer.className = '';
 
-    const groupedByFolder = bookmarks.reduce((acc, bm) => {
-        const folderName = bm.folder_name || 'Uncategorized';
-        if (!acc[folderName]) acc[folderName] = [];
-        acc[folderName].push(bm);
-        return acc;
-    }, {});
+    // 1. Filter by Folder
+    let displayData = allBookmarksCache;
+    if (currentFolderFilter !== null) {
+        displayData = displayData.filter(bm => bm.folder_id === currentFolderFilter);
+    }
 
-    for (const folderName in groupedByFolder) {
-        const header = document.createElement('h2');
-        header.textContent = folderName;
-        header.style.borderBottom = '2px solid #eee';
-        header.style.paddingBottom = '5px';
-        header.style.marginTop = '20px';
-        mainContainer.appendChild(header);
+    // 2. Filter by Search Term (Title, URL, Description, or Tags)
+    if (currentSearchTerm.trim() !== '') {
+        displayData = displayData.filter(bm => {
+            const tagString = bm.tags ? bm.tags.join(' ') : '';
+            return (
+                bm.title.toLowerCase().includes(currentSearchTerm) ||
+                bm.url.toLowerCase().includes(currentSearchTerm) ||
+                (bm.description && bm.description.toLowerCase().includes(currentSearchTerm)) ||
+                tagString.includes(currentSearchTerm)
+            );
+        });
+    }
 
+    // If no bookmarks found
+    if (displayData.length === 0) {
+        mainContainer.innerHTML = '<div style="padding:20px; color:#888;">No bookmarks found matching criteria.</div>';
+        return;
+    }
+
+    // 3. Render (Grouped or Flat)
+    // Logic: If we are filtering by Folder OR by Search Term, we show a Flat View.
+    // We only show the "Grouped by Folder" view if showing Everything with no filters.
+    
+    const isFiltered = (currentFolderFilter !== null || currentSearchTerm !== '');
+
+    if (isFiltered) {
+        // --- FLAT VIEW ---
         const folderContainer = document.createElement('div');
         folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
         mainContainer.appendChild(folderContainer);
-
-        groupedByFolder[folderName].forEach(bm => {
-            const div = document.createElement('div');
-            div.className = 'bm-item';
-            
-            const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
-            let tagsHtml = bm.tags && bm.tags.length > 0 ? `<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">${bm.tags.map(t => `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px;">#${t}</span>`).join('')}</div>` : '';
-            const descHtml = (bm.description && bm.description !== "Pending...") ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` : '';
-
-            if (currentBmView === 'grid') {
-                let mediaHtml = '';
-                if (isTwitter) mediaHtml = navigator.onLine ? `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
-                else if (bm.thumbnail) mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
-                
-                div.innerHTML = `
-                    ${mediaHtml}
-                    <h4 style="margin:10px 0 5px 0;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a></h4>
-                    ${descHtml}
-                    ${tagsHtml}
-                    <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
-                        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                        <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
-                    </div>`;
-            } else {
-                div.style.display = 'flex';
-                div.style.justifyContent = 'space-between';
-                div.style.alignItems = 'center';
-                div.style.padding = '10px';
-                div.style.borderBottom = '1px solid #eee';
-                div.innerHTML = `
-                    <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                        <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold;">${bm.title}</a>
-                        ${descHtml}
-                        ${tagsHtml}
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                         <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                         <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
-                    </div>`;
-            }
-            folderContainer.appendChild(div);
+        
+        displayData.forEach(bm => {
+            folderContainer.appendChild(createBookmarkElement(bm));
         });
+
+    } else {
+        // --- GROUPED VIEW (Default Dashboard Style) ---
+        const groupedByFolder = displayData.reduce((acc, bm) => {
+            const folderName = bm.folder_name || 'Uncategorized';
+            if (!acc[folderName]) acc[folderName] = [];
+            acc[folderName].push(bm);
+            return acc;
+        }, {});
+
+        for (const folderName in groupedByFolder) {
+            const header = document.createElement('h2');
+            header.textContent = folderName;
+            header.style.borderBottom = '2px solid #eee';
+            header.style.paddingBottom = '5px';
+            header.style.marginTop = '20px';
+            header.style.color = '#555';
+            mainContainer.appendChild(header);
+
+            const folderContainer = document.createElement('div');
+            folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
+            mainContainer.appendChild(folderContainer);
+
+            groupedByFolder[folderName].forEach(bm => {
+                folderContainer.appendChild(createBookmarkElement(bm));
+            });
+        }
     }
     renderTwitterWidgets();
+}
+
+function createBookmarkElement(bm) {
+    const div = document.createElement('div');
+    div.className = 'bm-item';
+    
+    const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
+    let tagsHtml = bm.tags && bm.tags.length > 0 ? `<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">${bm.tags.map(t => `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px;">#${t}</span>`).join('')}</div>` : '';
+    const descHtml = (bm.description && bm.description !== "Pending...") ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` : '';
+
+    if (currentBmView === 'grid') {
+        let mediaHtml = '';
+        if (isTwitter) mediaHtml = navigator.onLine ? `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
+        else if (bm.thumbnail) mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
+        
+        div.innerHTML = `
+            ${mediaHtml}
+            <h4 style="margin:10px 0 5px 0;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a></h4>
+            ${descHtml}
+            ${tagsHtml}
+            <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
+                <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+            </div>`;
+    } else {
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.alignItems = 'center';
+        div.style.padding = '10px';
+        div.style.borderBottom = '1px solid #eee';
+        div.innerHTML = `
+            <div style="flex: 1; overflow: hidden; margin-right: 15px;">
+                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold;">${bm.title}</a>
+                ${descHtml}
+                ${tagsHtml}
+            </div>
+            <div style="display:flex; gap:5px;">
+                    <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                    <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+            </div>`;
+    }
+    return div;
 }
 
 function renderTwitterWidgets() {
@@ -203,27 +287,69 @@ async function loadFolders() {
         const sidebarList = document.getElementById('sidebar-folders');
         
         selectDropdown.innerHTML = '<option value="">Uncategorized</option>';
-        sidebarList.innerHTML = '';
-
         folders.forEach(folder => {
             const option = document.createElement('option');
             option.value = folder.id;
             option.textContent = folder.name;
             selectDropdown.appendChild(option);
-            
-            const div = document.createElement('div');
-            div.style.display = 'flex';
-            div.style.justifyContent = 'space-between';
-            div.style.padding = '5px';
-            div.style.color = '#fff';
-            div.innerHTML = `<span>${folder.name}</span> <button onclick="deleteFolder(${folder.id}, '${folder.name}')" style="color:red; border:none; background:none; cursor:pointer;">&times;</button>`;
-            sidebarList.appendChild(div);
         });
         
         const createOption = document.createElement('option');
         createOption.value = 'CREATE_NEW';
         createOption.textContent = '--- Create New Folder ---';
         selectDropdown.appendChild(createOption);
+        
+        sidebarList.innerHTML = '';
+
+        const allDiv = document.createElement('div');
+        allDiv.style.padding = '8px 5px';
+        allDiv.style.cursor = 'pointer';
+        allDiv.style.color = '#fff';
+        allDiv.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+        allDiv.style.marginBottom = '5px';
+        allDiv.innerHTML = '📂 <strong>View All</strong>';
+        allDiv.onclick = () => {
+            switchTab('bookmarks');
+            setViewFolder(null, 'All');
+        };
+        sidebarList.appendChild(allDiv);
+
+        folders.forEach(folder => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+            div.style.padding = '5px';
+            div.style.color = '#ddd';
+            div.style.fontSize = '14px'; 
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = folder.name;
+            nameSpan.style.cursor = 'pointer';
+            nameSpan.style.flex = '1'; 
+            nameSpan.onmouseover = () => nameSpan.style.color = '#fff';
+            nameSpan.onmouseout = () => nameSpan.style.color = '#ddd';
+            nameSpan.onclick = () => {
+                switchTab('bookmarks');
+                setViewFolder(folder.id, folder.name);
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = '&times;';
+            delBtn.style.color = '#ff6b6b'; 
+            delBtn.style.border = 'none'; 
+            delBtn.style.background = 'none'; 
+            delBtn.style.cursor = 'pointer';
+            delBtn.style.fontSize = '16px';
+            delBtn.onclick = (e) => { 
+                e.stopPropagation(); 
+                deleteFolder(folder.id, folder.name); 
+            };
+
+            div.appendChild(nameSpan);
+            div.appendChild(delBtn);
+            sidebarList.appendChild(div);
+        });
         
     } catch (err) { console.error("Failed to load folders", err); }
 }
