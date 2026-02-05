@@ -23,112 +23,74 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 function initDb() {
     db.serialize(() => {
+        // NEW: Folders table
+        db.run(`CREATE TABLE IF NOT EXISTS folders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )`);
+
         db.run(`CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
             title TEXT,
             description TEXT,
             thumbnail TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            folder_id INTEGER,
+            FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            status TEXT DEFAULT 'todo',
-            due_date TEXT,
-            checklist TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            content TEXT,
-            is_encrypted INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
-        )`);
-
-        db.run(`CREATE TABLE IF NOT EXISTS item_tags (
-            item_id INTEGER,
-            item_type TEXT,
-            tag_id INTEGER,
-            PRIMARY KEY (item_id, item_type, tag_id),
-            FOREIGN KEY (tag_id) REFERENCES tags(id)
-        )`);
-        
-        db.run(`CREATE TABLE IF NOT EXISTS links (
-            source_id INTEGER,
-            source_type TEXT,
-            target_id INTEGER,
-            target_type TEXT
-        )`);
+        // (Your other tables: tasks, notes, etc. remain unchanged)
+        db.run(`CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, status TEXT DEFAULT 'todo', due_date TEXT, checklist TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        db.run(`CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_encrypted INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        db.run(`CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)`);
+        db.run(`CREATE TABLE IF NOT EXISTS item_tags (item_id INTEGER, item_type TEXT, tag_id INTEGER, PRIMARY KEY (item_id, item_type, tag_id), FOREIGN KEY (tag_id) REFERENCES tags(id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS links (source_id INTEGER, source_type TEXT, target_id INTEGER, target_type TEXT)`);
     });
 }
 
-/* ================= API ROUTES ================= */
-
-// --- Bookmarks ---
+/* ================= UPDATED BOOKMARK ROUTES ================= */
 app.get('/api/bookmarks', (req, res) => {
     const sql = `
-        SELECT b.*, GROUP_CONCAT(t.name) as tag_list
+        SELECT b.*, GROUP_CONCAT(t.name) as tag_list, f.name as folder_name
         FROM bookmarks b
         LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
         LEFT JOIN tags t ON it.tag_id = t.id
+        LEFT JOIN folders f ON b.folder_id = f.id
         GROUP BY b.id
-        ORDER BY b.created_at DESC
+        ORDER BY f.name, b.created_at DESC
     `;
     db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        // Convert "tag1,tag2" string back into array
-        const results = rows.map(r => ({
-            ...r,
-            tags: r.tag_list ? r.tag_list.split(',') : []
-        }));
+        const results = rows.map(r => ({ ...r, tags: r.tag_list ? r.tag_list.split(',') : [] }));
         res.json(results);
     });
 });
 
 app.post('/api/bookmarks', (req, res) => {
-    // 1. Accept 'description' from the frontend (Your "Possible Idea")
-    const { url, title, tags, description } = req.body; 
-    
-    // Use the user's description, or default to "Pending..." only if empty
+    const { url, title, tags, description, folderId } = req.body; 
     const descToSave = description || "Pending...";
-
-    const sql = `INSERT INTO bookmarks (url, title, description, thumbnail) VALUES (?, ?, ?, ?)`;
-    const params = [url, title || url, descToSave, ""]; 
+    const sql = `INSERT INTO bookmarks (url, title, description, thumbnail, folder_id) VALUES (?, ?, ?, ?, ?)`;
+    const params = [url, title || url, descToSave, "", folderId || null]; 
     
     db.run(sql, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         const bookmarkId = this.lastID;
-
-        // 2. Handle Tags
+        // (Tag handling logic remains the same)
         if (tags && tags.length > 0) {
             const tagInsertStmt = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
             const linkInsertStmt = db.prepare("INSERT INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', (SELECT id FROM tags WHERE name = ?))");
-            
-            db.serialize(() => {
-                tags.forEach(tag => {
-                    const cleanTag = tag.trim();
-                    if(cleanTag) {
-                        tagInsertStmt.run(cleanTag);
-                        linkInsertStmt.run(bookmarkId, cleanTag);
-                    }
-                });
-                tagInsertStmt.finalize();
-                linkInsertStmt.finalize();
+            tags.forEach(tag => {
+                const cleanTag = tag.trim();
+                if(cleanTag) {
+                    tagInsertStmt.run(cleanTag);
+                    linkInsertStmt.run(bookmarkId, cleanTag);
+                }
             });
+            tagInsertStmt.finalize();
+            linkInsertStmt.finalize();
         }
-        
-        // 3. Trigger Scraper (It will NOT overwrite your description now due to previous fix)
         enrichBookmark(bookmarkId, url);
-
         res.json({ id: bookmarkId, url, title, message: "Saved" });
     });
 });
@@ -397,6 +359,47 @@ app.delete('/api/notes/:id', (req, res) => {
     db.run("DELETE FROM notes WHERE id = ?", req.params.id, (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "Note deleted" });
+    });
+});
+
+/* ================= NEW: FOLDER API ROUTES ================= */
+app.get('/api/folders', (req, res) => {
+    db.all("SELECT * FROM folders ORDER BY name", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/folders', (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: "Folder name is required" });
+    db.run("INSERT INTO folders (name) VALUES (?)", [name], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID, name: name });
+    });
+});
+
+app.delete('/api/folders/:id', (req, res) => {
+    const folderId = req.params.id;
+    // Transaction to ensure both operations succeed or fail together
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        // 1. Delete all bookmarks within this folder
+        db.run("DELETE FROM bookmarks WHERE folder_id = ?", folderId, (err) => {
+            if (err) {
+                db.run("ROLLBACK");
+                return res.status(500).json({ error: "Failed to delete bookmarks in folder." });
+            }
+            // 2. Delete the folder itself
+            db.run("DELETE FROM folders WHERE id = ?", folderId, (err) => {
+                if (err) {
+                    db.run("ROLLBACK");
+                    return res.status(500).json({ error: "Failed to delete folder." });
+                }
+                db.run("COMMIT");
+                res.json({ message: "Folder and all its bookmarks have been deleted." });
+            });
+        });
     });
 });
 

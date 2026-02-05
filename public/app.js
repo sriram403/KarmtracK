@@ -1,176 +1,183 @@
 const API_BASE = 'http://localhost:3000/api';
-let currentBmView = 'list'; 
+let currentBmView = 'grid'; // Default to grid
 
-/* ================= INIT ================= */
+/* =================================================================
+   INITIALIZATION & CORE NAVIGATION
+   ================================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initial data load for the dashboard view
     switchTab('dashboard');
-    loadBookmarks();
-    loadTags(); // Load tags immediately for sidebar
+    
+    // Set up event listeners that only need to be attached once
+    document.getElementById('bm-folder-select').addEventListener('change', (e) => {
+        if (e.target.value === 'CREATE_NEW') {
+            createNewFolder();
+        }
+    });
+
+    const editor = document.getElementById('note-editor');
+    const titleInput = document.getElementById('note-title-input');
+    if (editor) editor.addEventListener('input', triggerAutoSave);
+    if (titleInput) titleInput.addEventListener('input', triggerAutoSave);
 });
 
-// === TAB SWITCHING ===
 function switchTab(tabName) {
+    // Hide all main content sections
     document.querySelectorAll('.view-section').forEach(el => {
         el.classList.remove('active');
         el.classList.add('hidden');
     });
     
+    // De-select all sidebar items
     document.querySelectorAll('.sidebar li').forEach(el => el.classList.remove('active'));
 
+    // Show the selected section and highlight the sidebar item
     document.getElementById(`view-${tabName}`).classList.add('active');
-    document.getElementById(`view-${tabName}`).classList.remove('hidden');
     document.getElementById(`nav-${tabName}`).classList.add('active');
 
-    // Load data on demand
-    if (tabName === 'dashboard') { loadDashboard(); loadTags(); }
+    // Load the necessary data for the new tab
+    if (tabName === 'dashboard') { loadDashboard(); loadTags(); loadFolders(); }
+    if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); }
     if (tabName === 'tasks') loadTasks();
-    if (tabName === 'bookmarks') loadBookmarks();
     if (tabName === 'research') loadNotes();
 }
 
-/* ================= BOOKMARKS LOGIC ================= */
-
-async function loadBookmarks() {
-    try {
-        const res = await fetch(`${API_BASE}/bookmarks`);
-        const bookmarks = await res.json();
-        
-        // Update Dashboard Stat
-        const el = document.getElementById('dash-bm-count');
-        if(el) el.innerText = bookmarks.length;
-
-        renderBookmarks(bookmarks);
-    } catch (err) {
-        console.error('Failed to load bookmarks', err);
-    }
-}
+/* =================================================================
+   BOOKMARKS
+   ================================================================= */
 
 async function addBookmark() {
     const urlInput = document.getElementById('bm-url-input');
-    const titleInput = document.getElementById('bm-title-input'); // NEW
+    const titleInput = document.getElementById('bm-title-input');
     const tagInput = document.getElementById('bm-tag-input');
-    const descInput = document.getElementById('bm-desc-input'); 
+    const descInput = document.getElementById('bm-desc-input');
+    const folderSelect = document.getElementById('bm-folder-select');
     
     const url = urlInput.value.trim();
     if (!url) return alert("Please enter a URL");
 
     const payload = {
         url: url,
-        title: titleInput.value.trim(), // Send user's title
+        title: titleInput.value.trim() || "Fetching title...",
         description: descInput.value.trim(), 
-        tags: tagInput.value.split(',').map(t => t.trim().toLowerCase())
+        tags: tagInput.value.split(',').map(t => t.trim().toLowerCase()),
+        folderId: folderSelect.value
     };
 
-    // Use user title as the main title if provided, otherwise send empty
-    if (!payload.title) {
-        payload.title = "Fetching title...";
-    }
-
     try {
-        await fetch(`${API_BASE}/bookmarks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        urlInput.value = '';
-        titleInput.value = '';
-        tagInput.value = '';
-        descInput.value = '';
+        await fetch(`${API_BASE}/bookmarks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        urlInput.value = ''; titleInput.value = ''; tagInput.value = ''; descInput.value = '';
         loadBookmarks(); 
         loadTags();
-    } catch (err) {
-        console.error('Error saving bookmark', err);
-    }
+    } catch (err) { console.error('Error saving bookmark', err); }
 }
 
+async function loadBookmarks() {
+    try {
+        const res = await fetch(`${API_BASE}/bookmarks`);
+        const bookmarks = await res.json();
+        renderBookmarks(bookmarks);
+    } catch (err) { console.error("Failed to load bookmarks", err); }
+}
+
+async function editBookmark(bm) {
+    const newTitle = prompt("Edit Title:", bm.title || '');
+    if (newTitle === null) return;
+    const newDesc = prompt("Edit Possible Idea:", bm.description && bm.description !== "Pending..." ? bm.description : '');
+    if (newDesc === null) return;
+    const currentTags = bm.tags ? bm.tags.join(', ') : '';
+    const newTags = prompt("Edit tags (comma-separated):", currentTags);
+    if (newTags === null) return;
+
+    const payload = { title: newTitle.trim(), description: newDesc.trim(), tags: newTags.split(',').map(t => t.trim().toLowerCase()) };
+    try {
+        await fetch(`${API_BASE}/bookmarks/${bm.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        loadBookmarks();
+        loadTags();
+    } catch (err) { console.error("Failed to update bookmark", err); }
+}
 
 async function deleteBookmark(id) {
     if(!confirm("Delete this bookmark?")) return;
     try {
         await fetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' });
         loadBookmarks();
-        loadTags(); // Refresh tags counts
-    } catch (err) {
-        console.error('Error deleting', err);
-    }
+        loadTags();
+    } catch (err) { console.error('Error deleting', err); }
 }
 
 function toggleBmView(view) {
     currentBmView = view;
-    loadBookmarks(); 
+    loadBookmarks();
 }
 
-/* ================= RENDER LOGIC (Twitter + Masonry) ================= */
-
 function renderBookmarks(bookmarks) {
-    const container = document.getElementById('bookmark-list');
-    container.innerHTML = '';
-    container.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
+    const mainContainer = document.getElementById('bookmark-list');
+    mainContainer.innerHTML = '';
+    mainContainer.className = '';
 
-    bookmarks.forEach(bm => {
-        const div = document.createElement('div');
-        div.className = 'bm-item'; 
+    const groupedByFolder = bookmarks.reduce((acc, bm) => {
+        const folderName = bm.folder_name || 'Uncategorized';
+        if (!acc[folderName]) acc[folderName] = [];
+        acc[folderName].push(bm);
+        return acc;
+    }, {});
 
-        // --- COMMON DATA PREPARATION ---
-        const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
-        let tagsHtml = '';
-        if (bm.tags && bm.tags.length > 0) {
-            tagsHtml = '<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">';
-            bm.tags.forEach(t => {
-                tagsHtml += `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px;">#${t}</span>`;
-            });
-            tagsHtml += '</div>';
-        }
-        const descHtml = (bm.description && bm.description !== "Pending...") 
-            ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` 
-            : '';
+    for (const folderName in groupedByFolder) {
+        const header = document.createElement('h2');
+        header.textContent = folderName;
+        header.style.borderBottom = '2px solid #eee';
+        header.style.paddingBottom = '5px';
+        header.style.marginTop = '20px';
+        mainContainer.appendChild(header);
 
-        // --- RENDER BASED ON VIEW ---
-        if (currentBmView === 'grid') {
-            let mediaHtml = '';
-            if (isTwitter) {
-                if (navigator.onLine) {
-                    const embedUrl = bm.url.replace('x.com', 'twitter.com');
-                    mediaHtml = `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${embedUrl}"></a></blockquote></div>`;
-                } else {
-                    mediaHtml = `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
-                }
-            } else if (bm.thumbnail && bm.thumbnail.startsWith('http')) {
-                mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
-            }
+        const folderContainer = document.createElement('div');
+        folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
+        mainContainer.appendChild(folderContainer);
+
+        groupedByFolder[folderName].forEach(bm => {
+            const div = document.createElement('div');
+            div.className = 'bm-item';
             
-            div.innerHTML = `
-                ${mediaHtml}
-                <h4 style="margin:10px 0 5px 0; font-size:14px;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title || 'Untitled'}</a></h4>
-                ${descHtml}
-                ${tagsHtml}
-                <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
-                    <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                    <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
-                </div>
-            `;
-        } else { // <<<<<<<<<<<<<<< FIX: ADDED THIS 'ELSE' BLOCK FOR LIST VIEW
-            div.style.display = 'flex';
-            div.style.justifyContent = 'space-between';
-            div.style.alignItems = 'center';
-            div.style.padding = '10px';
-            div.style.borderBottom = '1px solid #eee';
+            const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
+            let tagsHtml = bm.tags && bm.tags.length > 0 ? `<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">${bm.tags.map(t => `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px;">#${t}</span>`).join('')}</div>` : '';
+            const descHtml = (bm.description && bm.description !== "Pending...") ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` : '';
 
-            div.innerHTML = `
-                <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                    <a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333; font-weight:bold; white-space:nowrap; text-overflow: ellipsis; overflow: hidden; display: block;">${bm.title || bm.url}</a>
+            if (currentBmView === 'grid') {
+                let mediaHtml = '';
+                if (isTwitter) mediaHtml = navigator.onLine ? `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
+                else if (bm.thumbnail) mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
+                
+                div.innerHTML = `
+                    ${mediaHtml}
+                    <h4 style="margin:10px 0 5px 0;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a></h4>
                     ${descHtml}
                     ${tagsHtml}
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                    <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
-                </div>
-            `;
-        }
-        container.appendChild(div);
-    });
+                    <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
+                        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                        <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+                    </div>`;
+            } else {
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                div.style.padding = '10px';
+                div.style.borderBottom = '1px solid #eee';
+                div.innerHTML = `
+                    <div style="flex: 1; overflow: hidden; margin-right: 15px;">
+                        <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold;">${bm.title}</a>
+                        ${descHtml}
+                        ${tagsHtml}
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                         <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                         <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+                    </div>`;
+            }
+            folderContainer.appendChild(div);
+        });
+    }
     renderTwitterWidgets();
 }
 
@@ -182,95 +189,165 @@ function renderTwitterWidgets() {
     }
 }
 
-/* ================= TAGS LOGIC (WITH X BUTTON) ================= */
+
+/* =================================================================
+   FOLDERS
+   ================================================================= */
+
+async function loadFolders() {
+    try {
+        const res = await fetch(`${API_BASE}/folders`);
+        const folders = await res.json();
+        
+        const selectDropdown = document.getElementById('bm-folder-select');
+        const sidebarList = document.getElementById('sidebar-folders');
+        
+        selectDropdown.innerHTML = '<option value="">Uncategorized</option>';
+        sidebarList.innerHTML = '';
+
+        folders.forEach(folder => {
+            const option = document.createElement('option');
+            option.value = folder.id;
+            option.textContent = folder.name;
+            selectDropdown.appendChild(option);
+            
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.padding = '5px';
+            div.style.color = '#fff';
+            div.innerHTML = `<span>${folder.name}</span> <button onclick="deleteFolder(${folder.id}, '${folder.name}')" style="color:red; border:none; background:none; cursor:pointer;">&times;</button>`;
+            sidebarList.appendChild(div);
+        });
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'CREATE_NEW';
+        createOption.textContent = '--- Create New Folder ---';
+        selectDropdown.appendChild(createOption);
+        
+    } catch (err) { console.error("Failed to load folders", err); }
+}
+
+async function createNewFolder() {
+    const folderName = prompt("Enter new folder name:");
+    if (folderName && folderName.trim() !== "") {
+        try {
+            const res = await fetch(`${API_BASE}/folders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName.trim() }) });
+            const newFolder = await res.json();
+            await loadFolders(); // Refresh lists
+            document.getElementById('bm-folder-select').value = newFolder.id;
+        } catch (err) { console.error("Failed to create folder", err); }
+    } else {
+        document.getElementById('bm-folder-select').value = "";
+    }
+}
+
+async function deleteFolder(id, name) {
+    if (!confirm(`Are you SURE you want to delete the "${name}" folder? All bookmarks inside it will be permanently deleted.`)) return;
+    try {
+        await fetch(`${API_BASE}/folders/${id}`, { method: 'DELETE' });
+        loadFolders();
+        loadBookmarks();
+    } catch(err) { console.error("Failed to delete folder", err); }
+}
+
+
+/* =================================================================
+   TAGS
+   ================================================================= */
 
 async function loadTags() {
     try {
         const res = await fetch(`${API_BASE}/tags`);
         const tags = await res.json();
-        
         const container = document.getElementById('sidebar-tags');
         container.innerHTML = '';
-        
         tags.forEach(tag => {
-            // Container
             const wrapper = document.createElement('div');
             wrapper.style.display = 'inline-flex';
             wrapper.style.alignItems = 'center';
-            wrapper.style.justifyContent = 'space-between';
             wrapper.style.margin = '4px';
-            wrapper.style.background = 'rgba(255,255,255,0.15)'; 
+            wrapper.style.background = 'rgba(255,255,255,0.15)';
             wrapper.style.borderRadius = '15px';
             wrapper.style.padding = '4px 10px';
-            wrapper.style.border = '1px solid rgba(255,255,255,0.1)';
-
-            // Name
             const span = document.createElement('span');
             span.style.fontSize = '12px';
             span.style.color = '#fff';
-            span.style.cursor = 'pointer';
             span.innerText = `${tag.name} (${tag.count})`;
-            
-            // Delete 'X' Button
             const delBtn = document.createElement('span');
-            delBtn.innerHTML = '&times;'; 
+            delBtn.innerHTML = '&times;';
             delBtn.style.marginLeft = '8px';
             delBtn.style.cursor = 'pointer';
-            delBtn.style.color = '#ff6b6b'; 
+            delBtn.style.color = '#ff6b6b';
             delBtn.style.fontWeight = 'bold';
-            delBtn.style.fontSize = '16px';
-            delBtn.title = "Delete Tag";
-            
-            delBtn.onmouseover = () => delBtn.style.color = '#ff0000';
-            delBtn.onmouseout = () => delBtn.style.color = '#ff6b6b';
-
-            delBtn.onclick = (e) => {
-                e.stopPropagation(); 
-                deleteTag(tag.id, tag.name);
-            };
-
+            delBtn.onclick = (e) => { e.stopPropagation(); deleteTag(tag.id, tag.name); };
             wrapper.appendChild(span);
             wrapper.appendChild(delBtn);
             container.appendChild(wrapper);
         });
-    } catch (err) {
-        console.error("Error loading tags:", err);
-    }
+    } catch (err) { console.error("Error loading tags:", err); }
 }
 
 async function deleteTag(id, name) {
-    if(!confirm(`Warning: Deleting tag "${name}" will remove it from ALL bookmarks and notes. Proceed?`)) return;
-    
+    if(!confirm(`Warning: Deleting tag "${name}" will remove it from ALL items. Proceed?`)) return;
     try {
         await fetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
-        loadTags(); // Refresh sidebar
+        loadTags();
         if(document.getElementById('view-bookmarks').classList.contains('active')) {
-            loadBookmarks(); // Refresh bookmarks to show they lost the tag
+            loadBookmarks();
         }
-    } catch (err) {
-        console.error("Error deleting tag", err);
-    }
+    } catch (err) { console.error("Error deleting tag", err); }
 }
 
-/* ================= TASKS LOGIC ================= */
+
+/* =================================================================
+   TASKS & CALENDAR
+   ================================================================= */
 
 async function loadTasks() {
     try {
         const res = await fetch(`${API_BASE}/tasks`);
         const tasks = await res.json();
-
-        const todoCount = tasks.filter(t => t.status !== 'done').length;
-        const el = document.getElementById('dash-task-count');
-        if(el) el.innerText = `${todoCount} Pending`;
-
         renderTasks(tasks);
         renderCalendarPreview(tasks);
-    } catch (err) {
-        console.error('Failed to load tasks', err);
+    } catch (err) { console.error('Failed to load tasks', err); }
+}
+
+async function addTask() {
+    const input = document.getElementById('new-task-input');
+    const title = input.value.trim();
+    if (!title) return;
+    await fetch(`${API_BASE}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, status: 'todo' }) });
+    input.value = '';
+    loadTasks();
+}
+
+async function deleteTask(id) {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+        await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+        loadTasks();
+    } catch (err) { console.error("Failed to delete task", err); }
+}
+
+async function editTaskTitle(id, currentTitle) {
+    const newTitle = prompt("Enter new task title:", currentTitle);
+    if (newTitle && newTitle.trim() !== "") {
+        await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle.trim() }) });
+        loadTasks();
     }
 }
 
-/* ================= UPDATED TASK RENDER FUNCTION ================= */
+async function updateTaskStatus(id, newStatus) {
+    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+    loadTasks();
+}
+
+async function updateTaskDate(id, dateStr) {
+    if(!dateStr) return;
+    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_date: dateStr }) });
+    loadTasks();
+}
 
 function renderTasks(tasks) {
     document.getElementById('task-list-todo').innerHTML = '';
@@ -298,7 +375,6 @@ function renderTasks(tasks) {
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="font-weight:bold;">${task.title}</div>
-                <!-- NEW: Edit/Delete Task Buttons -->
                 <div style="font-size:12px;">
                     <button onclick='editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer;">✏️</button>
                     <button onclick="deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red;">🗑️</button>
@@ -318,12 +394,10 @@ function renderCalendarPreview(tasks) {
     const container = document.getElementById('simple-calendar');
     container.innerHTML = '';
     const datedTasks = tasks.filter(t => t.due_date).sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
-
     if(datedTasks.length === 0) {
         container.innerHTML = '<div style="color:#888; padding:20px; text-align:center;">No tasks scheduled.</div>';
         return;
     }
-
     datedTasks.forEach(t => {
         const item = document.createElement('div');
         item.style.padding = '8px';
@@ -334,27 +408,10 @@ function renderCalendarPreview(tasks) {
     });
 }
 
-async function addTask() {
-    const input = document.getElementById('new-task-input');
-    const title = input.value.trim();
-    if (!title) return;
-    await fetch(`${API_BASE}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, status: 'todo' }) });
-    input.value = '';
-    loadTasks();
-}
 
-async function updateTaskStatus(id, newStatus) {
-    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
-    loadTasks();
-}
-
-async function updateTaskDate(id, dateStr) {
-    if(!dateStr) return;
-    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_date: dateStr }) });
-    loadTasks();
-}
-
-/* ================= NOTES LOGIC ================= */
+/* =================================================================
+   RESEARCH NOTES
+   ================================================================= */
 
 let activeNoteId = null;
 let saveTimer = null; 
@@ -382,9 +439,8 @@ async function loadNotes() {
 async function createNewNote() {
     const res = await fetch(`${API_BASE}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Untitled Note', content: '' }) });
     const data = await res.json();
-    activeNoteId = data.id;
     loadNotes(); 
-    openNote(activeNoteId); 
+    openNote(data.id); 
 }
 
 async function openNote(id) {
@@ -393,6 +449,32 @@ async function openNote(id) {
     const note = await res.json();
     document.getElementById('note-title-input').value = note.title || '';
     document.getElementById('note-editor').innerHTML = note.content || '';
+    
+    const saveBtn = document.querySelector('.save-float');
+    let delBtn = document.getElementById('delete-note-btn');
+    if (!delBtn) {
+        delBtn = document.createElement('button');
+        delBtn.id = 'delete-note-btn';
+        delBtn.innerText = "Delete Note";
+        delBtn.style.background = "#ff4444";
+        delBtn.style.color = "white";
+        delBtn.style.marginLeft = "10px";
+        delBtn.onclick = deleteNote;
+        saveBtn.after(delBtn);
+    }
+}
+
+async function deleteNote() {
+    if (!activeNoteId) return;
+    if (!confirm("Are you sure you want to delete this note permanently?")) return;
+
+    try {
+        await fetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'DELETE' });
+        document.getElementById('note-title-input').value = '';
+        document.getElementById('note-editor').innerHTML = '';
+        activeNoteId = null;
+        loadNotes();
+    } catch (err) { console.error("Failed to delete note", err); }
 }
 
 async function saveCurrentNote() {
@@ -409,29 +491,27 @@ async function saveCurrentNote() {
     } catch (err) { console.error('Save failed', err); }
 }
 
-const editor = document.getElementById('note-editor');
-const titleInput = document.getElementById('note-title-input');
 function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveCurrentNote, 1000); }
-if(editor) editor.addEventListener('input', triggerAutoSave);
-if(titleInput) titleInput.addEventListener('input', triggerAutoSave);
 
-/* ================= DASHBOARD ================= */
+
+/* =================================================================
+   DASHBOARD & SEARCH
+   ================================================================= */
 
 async function loadDashboard() {
     const [resTasks, resBms] = await Promise.all([fetch(`${API_BASE}/tasks`), fetch(`${API_BASE}/bookmarks`)]);
     const tasks = await resTasks.json();
     const bookmarks = await resBms.json();
 
-    const todoCount = tasks.filter(t => t.status !== 'done').length;
-    document.getElementById('dash-task-count').innerText = `${todoCount} Pending`;
+    document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length} Pending`;
     document.getElementById('dash-bm-count').innerText = `${bookmarks.length} Total`;
 
     const todayStr = new Date().toISOString().split('T')[0];
     const todayTasks = tasks.filter(t => t.due_date === todayStr && t.status !== 'done');
     
     let agendaHtml = `<h3>Today's Agenda</h3>`;
-    if(todayTasks.length === 0) agendaHtml += `<p style="color:#888">Nothing due today. Enjoy!</p>`;
-    else todayTasks.forEach(t => agendaHtml += `<div style="padding:10px; background:#fff; border-left:4px solid #e67e22; margin-bottom:5px; border-radius:4px;">${t.title}</div>`);
+    if(todayTasks.length === 0) agendaHtml += `<p style="color:#888">Nothing due today.</p>`;
+    else todayTasks.forEach(t => agendaHtml += `<div class="agenda-item">${t.title}</div>`);
     
     let agendaContainer = document.getElementById('dash-agenda');
     if(!agendaContainer) {
@@ -443,9 +523,7 @@ async function loadDashboard() {
     agendaContainer.innerHTML = agendaHtml;
 }
 
-/* ================= SEARCH LOGIC ================= */
 let searchDebounce;
-
 function performSearch(query) {
     if (!query || query.length < 2) return;
     clearTimeout(searchDebounce);
@@ -454,7 +532,6 @@ function performSearch(query) {
         document.getElementById('view-search').classList.remove('hidden');
         document.getElementById('view-search').classList.add('active');
         document.querySelectorAll('.sidebar li').forEach(el => el.classList.remove('active'));
-
         try {
             const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
             const results = await res.json();
@@ -468,10 +545,7 @@ function renderSearchResults(results, query) {
     container.innerHTML = `<p>Found ${results.length} results for "<strong>${query}</strong>"</p>`;
     if (results.length === 0) return;
     const list = document.createElement('div');
-    list.style.display = 'flex';
-    list.style.flexDirection = 'column';
-    list.style.gap = '10px';
-
+    list.style.display = 'flex'; list.style.flexDirection = 'column'; list.style.gap = '10px';
     results.forEach(item => {
         const div = document.createElement('div');
         div.style.background = '#fff';
@@ -479,16 +553,8 @@ function renderSearchResults(results, query) {
         div.style.borderRadius = '5px';
         div.style.borderLeft = `5px solid ${getTypeColor(item.type)}`;
         div.style.cursor = 'pointer';
-        
-        let icon = '';
-        if(item.type === 'bookmark') icon = '🔖';
-        if(item.type === 'task') icon = '✅';
-        if(item.type === 'note') icon = '📝';
-
-        div.innerHTML = `
-            <div style="font-weight:bold; font-size:16px;">${icon} ${item.title}</div>
-            <div style="color:#666; font-size:12px; margin-top:2px;">Type: ${item.type.toUpperCase()} | Info: ${item.info || ''}</div>
-        `;
+        let icon = {'bookmark': '🔖', 'task': '✅', 'note': '📝'}[item.type] || '❓';
+        div.innerHTML = `<div style="font-weight:bold; font-size:16px;">${icon} ${item.title}</div><div style="color:#666; font-size:12px; margin-top:2px;">Type: ${item.type.toUpperCase()} | Info: ${item.info || ''}</div>`;
         div.onclick = () => {
             if(item.type === 'bookmark') switchTab('bookmarks'); 
             if(item.type === 'task') switchTab('tasks');
@@ -504,92 +570,4 @@ function getTypeColor(type) {
     if(type === 'task') return '#28a745';
     if(type === 'note') return '#ffc107';
     return '#ccc';
-}
-
-/* ================= NEW EDIT/DELETE HELPER FUNCTIONS ================= */
-
-async function editBookmark(bm) {
-    // FIX: Prompt for Title and Idea in addition to Tags
-    const newTitle = prompt("Edit Title:", bm.title || '');
-    if (newTitle === null) return; // User cancelled
-
-    const newDesc = prompt("Edit Possible Idea:", bm.description && bm.description !== "Pending..." ? bm.description : '');
-    if (newDesc === null) return; // User cancelled
-
-    const currentTags = bm.tags ? bm.tags.join(', ') : '';
-    const newTags = prompt("Edit tags (comma-separated):", currentTags);
-    if (newTags === null) return; // User cancelled
-
-    const payload = {
-        title: newTitle.trim(),
-        description: newDesc.trim(),
-        tags: newTags.split(',').map(t => t.trim().toLowerCase())
-    };
-
-    try {
-        await fetch(`${API_BASE}/bookmarks/${bm.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        loadBookmarks();
-        loadTags();
-    } catch (err) { console.error("Failed to update bookmark", err); }
-}
-
-async function deleteTask(id) {
-    if (!confirm("Are you sure you want to delete this task?")) return;
-    try {
-        await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
-        loadTasks();
-    } catch (err) { console.error("Failed to delete task", err); }
-}
-
-async function editTaskTitle(id, currentTitle) {
-    const newTitle = prompt("Enter new task title:", currentTitle);
-    if (newTitle && newTitle.trim() !== "") {
-        try {
-            await fetch(`${API_BASE}/tasks/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle.trim() })
-            });
-            loadTasks();
-        } catch(err) { console.error("Failed to update task title", err); }
-    }
-}
-
-async function deleteNote() {
-    if (!activeNoteId) return;
-    if (!confirm("Are you sure you want to delete this note permanently?")) return;
-
-    try {
-        await fetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'DELETE' });
-        document.getElementById('note-title-input').value = '';
-        document.getElementById('note-editor').innerHTML = '';
-        activeNoteId = null;
-        loadNotes(); // Refresh the list
-    } catch (err) { console.error("Failed to delete note", err); }
-}
-
-// And finally, update openNote to show the delete button
-async function openNote(id) {
-    activeNoteId = id;
-    const res = await fetch(`${API_BASE}/notes/${id}`);
-    const note = await res.json();
-    document.getElementById('note-title-input').value = note.title || '';
-    document.getElementById('note-editor').innerHTML = note.content || '';
-    
-    // Add delete button dynamically
-    const saveBtn = document.querySelector('.save-float');
-    let delBtn = document.getElementById('delete-note-btn');
-    if (!delBtn) {
-        delBtn = document.createElement('button');
-        delBtn.id = 'delete-note-btn';
-        delBtn.innerText = "Delete Note";
-        delBtn.style.background = "#ff4444";
-        delBtn.style.color = "white";
-        delBtn.onclick = deleteNote;
-        saveBtn.after(delBtn);
-    }
 }
