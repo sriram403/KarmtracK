@@ -219,7 +219,15 @@ function renderDashboardCalendar(tasks) {
         grid.appendChild(blank);
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    // --- FIX: GENERATE LOCAL DATE STRING ---
+    const now = new Date();
+    // Get local components
+    const localYear = now.getFullYear();
+    const localMonth = (now.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
+    const localDay = now.getDate().toString().padStart(2, '0');
+    // Combine to YYYY-MM-DD
+    const todayStr = `${localYear}-${localMonth}-${localDay}`;
+    // ---------------------------------------
 
     for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
