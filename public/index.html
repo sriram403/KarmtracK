@@ -53,6 +53,34 @@
         <main class="content">
             
             <!-- MODAL: Floating Task Window -->
+            <div id="edit-modal-backdrop" class="hidden">
+                <div id="edit-modal-content">
+                    <div class="edit-modal-header">
+                        <h2>Edit Bookmark</h2>
+                        <button id="edit-modal-close" onclick="closeEditModal()"> &times; </button>
+                    </div>
+
+                    <div class="edit-modal-body">
+                        <div class="form-group">
+                            <label for="edit-modal-title-input">Title</label>
+                            <input type="text" id="edit-modal-title-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-modal-desc-input">Description / Idea</label>
+                            <textarea id="edit-modal-desc-input" rows="4"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-modal-tags-input">Tags (comma-separated)</label>
+                            <input type="text" id="edit-modal-tags-input">
+                        </div>
+                    </div>
+
+                    <div class="edit-modal-footer">
+                        <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+                        <button class="btn-primary" onclick="saveBookmarkChanges()">Save Changes</button>
+                    </div>
+                </div>
+            </div>
             <div id="task-modal-backdrop" class="hidden">
                 <div id="task-modal-content">
                     <div class="task-modal-header">

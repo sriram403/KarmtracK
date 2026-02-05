@@ -9,6 +9,7 @@ let currentNoteSearch = '';
 let dashboardDate = new Date(); // Tracks the month currently being viewed
 let activeTaskData = null; // Holds the full data for the task in the modal
 let taskChecklist = []; // Holds the checklist items for the active task
+let activeEditBookmarkId = null; // Stores the ID of the bookmark being edited
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
@@ -491,21 +492,20 @@ function filterBookmarksLocally(query) {
 }
 
 async function editBookmark(bm) {
-    const newTitle = prompt("Edit Title:", bm.title || '');
-    if (newTitle === null) return;
-    const newDesc = prompt("Edit Possible Idea:", bm.description && bm.description !== "Pending..." ? bm.description : '');
-    if (newDesc === null) return;
-    const currentTags = bm.tags ? bm.tags.join(', ') : '';
-    const newTags = prompt("Edit tags (comma-separated):", currentTags);
-    if (newTags === null) return;
-
-    const payload = { title: newTitle.trim(), description: newDesc.trim(), tags: newTags.split(',').map(t => t.trim().toLowerCase()) };
-    try {
-        await fetch(`${API_BASE}/bookmarks/${bm.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        loadBookmarks();
-        loadTags();
-    } catch (err) { console.error("Failed to update bookmark", err); }
+    openEditModal(bm);
 }
+
+// Esc key to close modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape") {
+        if (!document.getElementById('task-modal-backdrop').classList.contains('hidden')) {
+            closeTaskModal();
+        }
+        if (!document.getElementById('edit-modal-backdrop').classList.contains('hidden')) {
+            closeEditModal();
+        }
+    }
+});
 
 async function deleteBookmark(id) {
     if(!confirm("Delete this bookmark?")) return;
@@ -1365,4 +1365,47 @@ async function importBookmarks(inputElement) {
     
     reader.readAsText(file);
     inputElement.value = ''; // Reset input so same file can be selected again if needed
+}
+
+/* ================= EDIT BOOKMARK MODAL ================= */
+
+function openEditModal(bm) {
+    activeEditBookmarkId = bm.id;
+    document.getElementById('edit-modal-title-input').value = bm.title || '';
+    document.getElementById('edit-modal-desc-input').value = (bm.description && bm.description !== "Pending...") ? bm.description : '';
+    document.getElementById('edit-modal-tags-input').value = bm.tags ? bm.tags.join(', ') : '';
+    document.getElementById('edit-modal-backdrop').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    activeEditBookmarkId = null;
+    document.getElementById('edit-modal-backdrop').classList.add('hidden');
+}
+
+async function saveBookmarkChanges() {
+    if (!activeEditBookmarkId) return;
+
+    const newTitle = document.getElementById('edit-modal-title-input').value.trim();
+    const newDesc = document.getElementById('edit-modal-desc-input').value.trim();
+    const newTags = document.getElementById('edit-modal-tags-input').value;
+    
+    const payload = { 
+        title: newTitle, 
+        description: newDesc, 
+        tags: newTags.split(',').map(t => t.trim().toLowerCase()) 
+    };
+
+    try {
+        await fetch(`${API_BASE}/bookmarks/${activeEditBookmarkId}`, { 
+            method: 'PUT', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+        });
+        closeEditModal();
+        loadBookmarks();
+        loadTags();
+    } catch (err) { 
+        console.error("Failed to update bookmark", err); 
+        alert("Update failed. Check console for details.");
+    }
 }
