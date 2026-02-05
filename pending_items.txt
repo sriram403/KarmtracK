@@ -1,2 +1,1 @@
-5. each tasks I should be able to click and open like notes section internally on the same tab of tasks, and make notes and i should be also able to create clickable to-do list mini inside the tasks notes section, on the note section for each tasks itself also show me the num of time i took break as well (the num of times i paused, and once i moved the task to completed update the tasks note and tell me how much time it took to complete that tasks as well)
-6. extract the db into csv values with all the data as well as give option to import csv and store it in db
+6. give option to extract the db into csv values with all the data as well as give option to import csv and store it in db
