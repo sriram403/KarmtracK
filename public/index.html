@@ -123,35 +123,40 @@
 
             <!-- Bookmarks View -->
             <div id="view-bookmarks" class="view-section hidden">
-                <div class="header-actions">
-                    <h1>Bookmarks</h1>
-
-                    <!-- UPDATED INPUT AREA -->
-                    <div class="inputs" style="flex-direction: column; gap: 5px; flex-grow: 1;">
-                        <div style="display:flex; gap:10px; width:100%;">
-                            <input type="text" id="bm-url-input" placeholder="Paste URL here..." style="flex:2">
-                            <!-- NEW: Optional Title -->
-                            <input type="text" id="bm-title-input" placeholder="Optional Title..." style="flex:1">
-                        </div>
-                        <div style="display:flex; gap:10px; width:100%;">
-                            <input type="text" id="bm-desc-input" placeholder="Possible Idea? (Why are you saving this?)" style="flex:2">
-                            <input type="text" id="bm-tag-input" placeholder="Tags (ocr, ai)" style="flex:1">
+                <div class="header-actions" style="display: flex; flex-direction: column; gap: 15px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <!-- Row 1: Title and View Toggles -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                        <h1 style="margin: 0; display:flex; align-items:center; gap:15px;">Bookmarks</h1>
+                        <div class="view-toggles">
+                            <button onclick="toggleBmView('list')" style="padding: 6px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px;" title="List View"><span class="material-icons" style="font-size: 20px; vertical-align: middle;">list</span></button>
+                            <button onclick="toggleBmView('grid')" style="padding: 6px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px;" title="Grid View"><span class="material-icons" style="font-size: 20px; vertical-align: middle;">grid_view</span></button>
                         </div>
                     </div>
 
-                     <!-- NEW FOLDER SELECTOR -->
-                    <div style="display: flex; flex-direction: column; gap: 5px; margin-left: 10px;">
-                        <label for="bm-folder-select" style="font-size:12px; color:#666;">Folder:</label>
-                        <select id="bm-folder-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;"></select>
-                    </div>
+                    <!-- Row 2: Inputs and Action Buttons -->
+                    <div style="display: flex; gap: 15px; align-items: flex-end;">
+                        
+                        <!-- Input Fields Area (Flex Column) -->
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="bm-url-input" placeholder="Paste URL here..." style="flex: 3; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="text" id="bm-title-input" placeholder="Optional Title..." style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="bm-desc-input" placeholder="Possible Idea? (Why are you saving this?)" style="flex: 3; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="text" id="bm-tag-input" placeholder="Tags (ocr, ai)" style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
 
-                    <div style="display: flex; gap: 10px; align-items: flex-start; height: 100%; margin-left: 20px;">
-                        <button onclick="addBookmark()" style="height: 60px;">Save</button>
-                    </div>
-                    
-                    <div class="view-toggles" style="align-self: flex-start;">
-                        <button onclick="toggleBmView('list')"><span class="material-icons">list</span></button>
-                        <button onclick="toggleBmView('grid')"><span class="material-icons">grid_view</span></button>
+                        <!-- Controls Area (Folder + Save Button) -->
+                        <div style="display: flex; flex-direction: column; gap: 8px; width: 180px;">
+                            <select id="bm-folder-select" style="padding: 9px; border-radius: 4px; border: 1px solid #ddd; width: 100%; cursor:pointer; background-color:#f9f9f9; font-size: 13px;">
+                                <!-- Populated by JS -->
+                            </select>
+                            <button onclick="addBookmark()" style="padding: 10px; background-color: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                Save
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px; background: #fff; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">

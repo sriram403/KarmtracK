@@ -17,21 +17,36 @@ function setViewFolder(id, name) {
     currentFolderFilter = id;
     const header = document.querySelector('#view-bookmarks h1');
     
-    // Update the visual header
+    // Ensure the header uses flexbox for vertical alignment of the button
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.gap = '15px'; // Space between Title and Button
+
     if (currentFolderFilter) {
-        header.textContent = `Folder: ${name}`;
-        // Add a "Back to All" button dynamically if it doesn't exist
-        if (!document.getElementById('back-to-all-btn')) {
-            const btn = document.createElement('button');
-            btn.id = 'back-to-all-btn';
-            btn.textContent = '← View All';
-            btn.style.fontSize = '12px'; 
-            btn.style.marginLeft = '10px';
-            btn.style.padding = '5px 10px';
-            btn.style.cursor = 'pointer';
-            btn.onclick = () => setViewFolder(null, 'All');
-            header.appendChild(btn);
-        }
+        // Clear existing content to rebuild
+        header.innerHTML = '';
+        
+        const titleText = document.createElement('span');
+        titleText.textContent = `Folder: ${name}`;
+        header.appendChild(titleText);
+
+        // Add "Back to All" button with improved styling
+        const btn = document.createElement('button');
+        btn.id = 'back-to-all-btn';
+        btn.innerHTML = '← View All';
+        btn.style.fontSize = '12px'; 
+        btn.style.padding = '5px 10px';
+        btn.style.cursor = 'pointer';
+        btn.style.backgroundColor = '#fff';
+        btn.style.border = '1px solid #ccc';
+        btn.style.borderRadius = '4px';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        
+        // Hover effect logic could go here, but inline simpler for now
+        btn.onclick = () => setViewFolder(null, 'All');
+        header.appendChild(btn);
+
     } else {
         header.textContent = 'Bookmarks';
     }
@@ -559,39 +574,69 @@ function createBookmarkElement(bm) {
     const div = document.createElement('div');
     div.className = 'bm-item';
     
+    // Check if it's a Twitter/X link for special rendering
     const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
-    let tagsHtml = bm.tags && bm.tags.length > 0 ? `<div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">${bm.tags.map(t => `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px;">#${t}</span>`).join('')}</div>` : '';
-    const descHtml = (bm.description && bm.description !== "Pending...") ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700;">💡 ${bm.description}</div>` : '';
+    
+    // Generate Tags HTML (Chip style)
+    let tagsHtml = '';
+    if (bm.tags && bm.tags.length > 0) {
+        tagsHtml = bm.tags.map(t => 
+            `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px; margin-right:4px; display:inline-block;">#${t}</span>`
+        ).join('');
+    }
+
+    // Generate Description HTML
+    const descHtml = (bm.description && bm.description !== "Pending...") 
+        ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700; word-wrap: break-word;">💡 ${bm.description}</div>` 
+        : '';
+
+    // Action Buttons HTML
+    const buttonsHtml = `
+        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">Edit</button>
+        <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+    `;
 
     if (currentBmView === 'grid') {
+        // --- GRID VIEW LAYOUT ---
         let mediaHtml = '';
-        if (isTwitter) mediaHtml = navigator.onLine ? `<div style="min-height:100px; display:flex; justify-content:center;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc;">Offline Preview</div>`;
-        else if (bm.thumbnail) mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px;" onerror="this.style.display='none'">`;
+        if (isTwitter) {
+            mediaHtml = navigator.onLine 
+                ? `<div style="min-height:100px; display:flex; justify-content:center; overflow:hidden;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` 
+                : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc; font-size:12px;">Offline Preview</div>`;
+        } else if (bm.thumbnail) {
+            mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px; object-fit: cover;" onerror="this.style.display='none'">`;
+        }
         
         div.innerHTML = `
             ${mediaHtml}
-            <h4 style="margin:10px 0 5px 0;"><a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a></h4>
+            <h4 style="margin:10px 0 5px 0; word-break: break-word; line-height: 1.4;">
+                <a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a>
+            </h4>
             ${descHtml}
-            ${tagsHtml}
-            <div style="margin-top:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
-                <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+            
+            <!-- Footer: Flex container for Tags (Left) and Buttons (Right) -->
+            <div style="margin-top:12px; padding-top:8px; border-top:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1; display:flex; flex-wrap:wrap; gap:2px;">${tagsHtml}</div>
+                <div style="white-space:nowrap; margin-left:10px;">${buttonsHtml}</div>
             </div>`;
+
     } else {
+        // --- LIST VIEW LAYOUT ---
         div.style.display = 'flex';
         div.style.justifyContent = 'space-between';
         div.style.alignItems = 'center';
         div.style.padding = '10px';
         div.style.borderBottom = '1px solid #eee';
+        
         div.innerHTML = `
             <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold;">${bm.title}</a>
+                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold; color:#333;">${bm.title}</a>
+                <div style="font-size:12px; color:#666; margin-top:2px;">${bm.url}</div>
                 ${descHtml}
-                ${tagsHtml}
+                <div style="margin-top:5px;">${tagsHtml}</div>
             </div>
-            <div style="display:flex; gap:5px;">
-                    <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Edit</button>
-                    <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+            <div style="display:flex; align-items:center;">
+                ${buttonsHtml}
             </div>`;
     }
     return div;
