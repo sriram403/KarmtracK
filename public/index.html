@@ -131,44 +131,61 @@
 
             <!-- VIEW: Bookmarks -->
             <div id="view-bookmarks" class="view-section hidden">
+                
+                <!-- NEW: Spacious Header Actions -->
                 <div class="header-actions" style="background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
-                        <h1 style="margin: 0; font-size: 1.8rem;">Bookmarks</h1>
+                    
+                    <!-- Top Bar: Title & View Toggles -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                        <h1 style="margin: 0; font-size: 2rem; color: var(--accent-cyan); letter-spacing: 2px;">THE ARCHIVES</h1>
                         <div class="view-toggles">
-                            <button onclick="toggleBmView('list')" style="background: #333; color: white; border: none; border-radius: 4px; padding: 8px;"><span class="material-icons">list</span></button>
-                            <button onclick="toggleBmView('grid')" style="background: #333; color: white; border: none; border-radius: 4px; padding: 8px;"><span class="material-icons">grid_view</span></button>
+                            <button onclick="toggleBmView('list')" style="background: #222; color: white; border: 1px solid #444; border-radius: 4px; padding: 10px 15px;"><span class="material-icons">list</span></button>
+                            <button onclick="toggleBmView('grid')" style="background: #222; color: white; border: 1px solid #444; border-radius: 4px; padding: 10px 15px;"><span class="material-icons">grid_view</span></button>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="bm-url-input" placeholder="Paste URL (Feed the machine)...">
-                                <input type="text" id="bm-title-input" placeholder="Title (Optional)...">
+                    <!-- Input Grid: The "Bigger" Interface -->
+                    <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 20px;">
+                        
+                        <!-- Left Column: Inputs -->
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <!-- Huge URL Input -->
+                            <input type="text" id="bm-url-input" placeholder="Paste URL here (The Source)..." 
+                                style="padding: 15px; font-size: 1.2rem; background: #111; border: 2px solid #333; color: var(--accent-cyan); font-family: 'Space Grotesk', monospace;">
+                            
+                            <!-- Row 2 -->
+                            <div style="display: flex; gap: 15px;">
+                                <input type="text" id="bm-title-input" placeholder="Title (Optional override)..." style="flex: 1; padding: 12px;">
+                                <input type="text" id="bm-tag-input" placeholder="Tags (comma, separated)..." style="flex: 1; padding: 12px;">
                             </div>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="text" id="bm-desc-input" placeholder="Why? (Justify this hoarding)...">
-                                <input type="text" id="bm-tag-input" placeholder="Tags (e.g. memes, world-domination)...">
-                            </div>
+
+                            <!-- Row 3 -->
+                            <input type="text" id="bm-desc-input" placeholder="Description / Idea / Why is this important?" style="padding: 12px;">
                         </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 8px; width: 180px;">
-                            <select id="bm-folder-select" style="padding: 9px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
-                                <!-- Populated by JS -->
-                            </select>
-                            <button onclick="addBookmark()" style="padding: 10px; background-color: var(--primary-red); color: white; border: none; border-radius: 4px; box-shadow: var(--shadow-red);">
-                                SAVE
+                        <!-- Right Column: Controls -->
+                        <div style="display: flex; flex-direction: column; gap: 15px; justify-content: space-between;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="font-size: 0.8rem; color: #888; text-transform: uppercase;">Assign Folder</label>
+                                <select id="bm-folder-select" style="padding: 12px; background: #222; color: white; border: 1px solid #444; cursor:pointer;">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            
+                            <button onclick="addBookmark()" style="padding: 15px; height: 100%; background-color: var(--primary-red); color: white; border: none; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; box-shadow: var(--shadow-red); transition: 0.2s;">
+                                SAVE DATA
                             </button>
                         </div>
                     </div>
                 </div>
                 
-                <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px; background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                    <span class="material-icons" style="color: var(--accent-cyan);">search</span>
+                <!-- Filter Bar -->
+                <div style="margin: 30px 0; display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span class="material-icons" style="color: var(--accent-cyan); margin-left: 10px;">search</span>
                     <input type="text" 
-                        placeholder="Filter current view..." 
+                        placeholder="Filter archives..." 
                         onkeyup="filterBookmarksLocally(this.value)"
-                        style="border: none; outline: none; flex: 1; background: transparent;">
+                        style="border: none; outline: none; flex: 1; background: transparent; font-size: 1.1rem;">
                 </div>
                 
                 <div id="bookmark-list"></div>

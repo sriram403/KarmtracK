@@ -253,3 +253,56 @@ button {
 
 /* --- Utilities --- */
 .hidden { display: none !important; }
+
+/* --- UPDATES FOR "BIGGER" UI --- */
+
+/* 1. Bookmark Input Enhancements */
+.header-actions input:focus {
+    border-color: var(--primary-red);
+    background: #1a1a1a;
+    transform: scale(1.01);
+}
+
+.header-actions button:active {
+    transform: scale(0.95);
+}
+
+/* 2. Fix for Squished Kanban Columns */
+.kanban-board { 
+    display: flex; 
+    gap: 20px; 
+    /* Ensure the board takes up height so columns stretch */
+    min-height: 60vh; 
+}
+
+.column {
+    /* Flex 1 means grow equally. 0 basis means start from 0. 
+       We add min-width to prevent squishing when content is wider than container */
+    flex: 1 1 0; 
+    min-width: 250px; 
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.03); /* Subtle background to see the column area */
+    transition: background 0.3s;
+}
+
+.column:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Ensure the container inside the column fills the height */
+.task-container {
+    flex: 1; 
+    min-height: 200px; /* Ensures it looks "open" even when empty */
+    padding-bottom: 50px; /* Space at bottom for easier dragging visuals later */
+}
+
+/* Specific styling for the 'Done' column to make it look active even when empty */
+#col-done {
+    border: 1px dashed rgba(255, 42, 109, 0.3);
+}
+
+#col-done h3 {
+    border-color: var(--primary-red);
+    color: var(--primary-red);
+}
