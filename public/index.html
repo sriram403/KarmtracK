@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKM System</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+        <h2>My Brain</h2>
+        
+        <!-- NEW: Global Search Input -->
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="global-search-input" placeholder="🔍 Search everything..." 
+                style="width: 90%; padding: 8px; border-radius: 4px; border: none;"
+                onkeyup="performSearch(this.value)">
+        </div>
+
+        <ul>
+                <li onclick="switchTab('dashboard')" class="active" id="nav-dashboard"><span class="material-icons">dashboard</span> Dashboard</li>
+                <li onclick="switchTab('bookmarks')" id="nav-bookmarks"><span class="material-icons">bookmarks</span> Bookmarks</li>
+                <li onclick="switchTab('tasks')" id="nav-tasks"><span class="material-icons">check_circle</span> Tasks & Calendar</li>
+                <li onclick="switchTab('research')" id="nav-research"><span class="material-icons">library_books</span> Research</li>
+            </ul>
+            <div class="tag-cloud-sidebar">
+                <h3>Tags</h3>
+                <div id="sidebar-tags"></div>
+            </div>
+        </nav>
+
+        <main class="content">
+    
+            <!-- NEW: Search Results View -->
+            <div id="view-search" class="view-section hidden">
+                <h1>Search Results</h1>
+                <div id="search-results-container"></div>
+            </div>
+            <!-- Dashboard View -->
+            <div id="view-dashboard" class="view-section active">
+                <h1>Dashboard</h1>
+                <div class="stats-container">
+                    <div class="stat-card"><h3>Tasks Today</h3><p id="dash-task-count">0</p></div>
+                    <div class="stat-card"><h3>Recent Bookmarks</h3><p id="dash-bm-count">0</p></div>
+                </div>
+            </div>
+
+            <!-- Bookmarks View -->
+            <div id="view-bookmarks" class="view-section hidden">
+                <div class="header-actions">
+                    <h1>Bookmarks</h1>
+                    <!-- UPDATED INPUT AREA -->
+                    <div class="inputs" style="flex-direction: column; gap: 5px; flex-grow: 1;">
+                        <div style="display:flex; gap:10px; width:100%;">
+                            <input type="text" id="bm-url-input" placeholder="Paste URL here..." style="flex:2">
+                            <!-- NEW: Optional Title -->
+                            <input type="text" id="bm-title-input" placeholder="Optional Title..." style="flex:1">
+                        </div>
+                        <div style="display:flex; gap:10px; width:100%;">
+                            <input type="text" id="bm-desc-input" placeholder="Possible Idea? (Why are you saving this?)" style="flex:2">
+                            <input type="text" id="bm-tag-input" placeholder="Tags (ocr, ai)" style="flex:1">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start; height: 100%; margin-left: 20px;">
+                        <button onclick="addBookmark()" style="height: 60px;">Save</button>
+                    </div>
+                    
+                    <div class="view-toggles" style="align-self: flex-start;">
+                        <button onclick="toggleBmView('list')"><span class="material-icons">list</span></button>
+                        <button onclick="toggleBmView('grid')"><span class="material-icons">grid_view</span></button>
+                    </div>
+                </div>
+                <div id="bookmark-list"></div>
+            </div>
+
+            <!-- Tasks View -->
+            <div id="view-tasks" class="view-section hidden">
+                <h1>Tasks & Calendar</h1>
+                <div class="task-layout">
+                    <div class="kanban-board">
+                        <div class="column" id="col-todo">
+                            <h3>Backlog / Todo</h3>
+                            <div class="add-task-row">
+                                <input type="text" id="new-task-input" placeholder="New Task...">
+                                <button onclick="addTask()">Add</button>
+                            </div>
+                            <div id="task-list-todo" class="task-container"></div>
+                        </div>
+                        <div class="column" id="col-progress">
+                            <h3>In Progress</h3>
+                            <div id="task-list-progress" class="task-container"></div>
+                        </div>
+                        <div class="column" id="col-done">
+                            <h3>Completed</h3>
+                            <div id="task-list-done" class="task-container"></div>
+                        </div>
+                    </div>
+                    <div class="calendar-wrapper">
+                        <h3>Schedule</h3>
+                        <div id="simple-calendar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Research View -->
+            <div id="view-research" class="view-section hidden">
+                <div class="research-layout">
+                    <div class="notes-list-sidebar">
+                        <button onclick="createNewNote()">+ New Note</button>
+                        <ul id="notes-list-ul"></ul>
+                    </div>
+                    <div class="note-editor-area">
+                        <input type="text" id="note-title-input" placeholder="Note Title">
+                        <div id="note-editor" contenteditable="true" class="block-editor"></div>
+                        <button onclick="saveCurrentNote()" class="save-float">Save</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

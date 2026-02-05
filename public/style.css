@@ -1,0 +1,59 @@
+:root { --primary: #333; --accent: #007bff; --bg: #f4f4f9; --card: #fff; }
+body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; height: 100vh; overflow: hidden; }
+.app-container { display: flex; width: 100%; }
+
+/* Sidebar */
+.sidebar { width: 250px; background: var(--primary); color: #fff; padding: 20px; display: flex; flex-direction: column; }
+.sidebar h2 { margin-top: 0; }
+.sidebar ul { list-style: none; padding: 0; }
+.sidebar li { padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-radius: 4px; }
+.sidebar li:hover, .sidebar li.active { background: rgba(255,255,255,0.1); }
+
+/* Main Content */
+.content { flex: 1; padding: 20px; overflow-y: auto; }
+.view-section { display: none; }
+.view-section.active { display: block; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Stats */
+.stats-container { display: flex; gap: 20px; }
+.stat-card { background: var(--card); padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+/* Bookmarks */
+.header-actions { margin-bottom: 20px; background: var(--card); padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+.inputs { display: flex; gap: 10px; flex: 1; margin-right: 20px; }
+.inputs input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; }
+/* Masonry Layout for Variable Heights */
+.bm-grid-layout {
+    column-count: 3;
+    column-gap: 20px;
+}
+
+/* Responsive: 2 columns on tablet, 1 on mobile */
+@media (max-width: 900px) { .bm-grid-layout { column-count: 2; } }
+@media (max-width: 600px) { .bm-grid-layout { column-count: 1; } }
+
+/* Prevent cards from breaking between columns */
+.bm-item {
+    break-inside: avoid; 
+    margin-bottom: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+}
+.bm-list-layout { display: flex; flex-direction: column; gap: 10px; }
+
+/* Tasks */
+.task-layout { display: flex; gap: 20px; height: 80vh; }
+.kanban-board { flex: 2; display: flex; gap: 10px; }
+.column { flex: 1; background: #e0e0e0; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; }
+.task-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.calendar-wrapper { flex: 1; background: var(--card); padding: 10px; border-radius: 8px; }
+
+/* Notes */
+.research-layout { display: flex; height: 80vh; gap: 20px; }
+.notes-list-sidebar { width: 200px; background: var(--card); border-right: 1px solid #ddd; padding: 10px; overflow-y: auto; }
+.note-editor-area { flex: 1; background: var(--card); padding: 20px; display: flex; flex-direction: column; }
+#note-editor { flex: 1; border: 1px solid #eee; padding: 20px; margin-top: 10px; overflow-y: auto; outline: none; }
+#note-title-input { font-size: 1.5em; border: none; border-bottom: 1px solid #eee; padding: 5px; outline: none; }
