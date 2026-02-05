@@ -3,6 +3,9 @@ let currentBmView = 'grid'; // Default to grid
 let currentFolderFilter = null; // null = View All, integer = specific folder ID
 let allBookmarksCache = []; // Stores raw data from API
 let currentSearchTerm = ''; // Stores local search text
+let allNotesCache = [];
+let currentNoteFolder = null; // null = All
+let currentNoteSearch = '';
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
@@ -70,9 +73,98 @@ function switchTab(tabName) {
     if (tabName === 'dashboard') { loadDashboard(); loadTags(); loadFolders(); }
     if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); }
     if (tabName === 'tasks') loadTasks();
-    if (tabName === 'research') loadNotes();
+    if (tabName === 'research') { 
+        loadNotes(); 
+        loadNoteFolders(); // <--- ADD THIS
+    }
+}
+async function loadNoteFolders() {
+    try {
+        const res = await fetch(`${API_BASE}/folders`);
+        const folders = await res.json();
+        
+        // 1. Populate Left Sidebar List
+        const list = document.getElementById('note-folder-list');
+        list.innerHTML = '';
+        
+        // "All Notes" option
+        const allDiv = document.createElement('div');
+        allDiv.innerHTML = '📝 <strong>All Notes</strong>';
+        allDiv.style.padding = '10px';
+        allDiv.style.cursor = 'pointer';
+        allDiv.style.borderBottom = '1px solid #eee';
+        allDiv.onclick = () => { currentNoteFolder = null; renderNotesList(); };
+        list.appendChild(allDiv);
+
+        folders.forEach(f => {
+            // Container
+            const div = document.createElement('div');
+            div.style.padding = '10px';
+            div.style.cursor = 'pointer';
+            div.style.fontSize = '14px';
+            div.style.display = 'flex';              // <--- Changed to Flex
+            div.style.justifyContent = 'space-between'; // <--- Push X to right
+            div.style.alignItems = 'center';
+            div.style.borderBottom = '1px solid #f9f9f9';
+
+            // Hover effect
+            div.onmouseover = () => div.style.background = '#eef';
+            div.onmouseout = () => div.style.background = 'transparent';
+            
+            // Click Folder Name Logic
+            div.onclick = () => { currentNoteFolder = f.id; renderNotesList(); };
+
+            // Folder Name
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = f.name;
+
+            // Delete Button (X)
+            const delBtn = document.createElement('span');
+            delBtn.innerHTML = '&times;';
+            delBtn.style.color = '#ccc';
+            delBtn.style.fontWeight = 'bold';
+            delBtn.style.paddingLeft = '10px';
+            delBtn.onmouseover = (e) => { e.target.style.color = 'red'; };
+            delBtn.onmouseout = (e) => { e.target.style.color = '#ccc'; };
+            
+            // Prevent click from bubbling up (so clicking X doesn't open the folder)
+            delBtn.onclick = (e) => { 
+                e.stopPropagation(); 
+                deleteFolder(f.id, f.name); 
+            };
+
+            div.appendChild(nameSpan);
+            div.appendChild(delBtn);
+            list.appendChild(div);
+        });
+
+        // 2. Populate Dropdown in Editor
+        const select = document.getElementById('note-folder-select');
+        // Save current selection if possible, otherwise it resets every time we add a folder
+        const currentVal = select.value; 
+        
+        select.innerHTML = '<option value="">Uncategorized</option>';
+        folders.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name;
+            select.appendChild(opt);
+        });
+        
+        if(currentVal) select.value = currentVal;
+
+    } catch (err) { console.error(err); }
 }
 
+async function createNewFolderForNotes() {
+    const name = prompt("New Folder Name:");
+    if (!name) return;
+    try {
+        await fetch(`${API_BASE}/folders`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
+        loadNoteFolders(); // Refresh note folders
+        // If we are in dashboard/bookmarks, we might want to refresh those too, but this is enough for now.
+    } catch(err) { console.error(err); }
+}
 /* =================================================================
    BOOKMARKS
    ================================================================= */
@@ -369,11 +461,29 @@ async function createNewFolder() {
 }
 
 async function deleteFolder(id, name) {
-    if (!confirm(`Are you SURE you want to delete the "${name}" folder? All bookmarks inside it will be permanently deleted.`)) return;
+    if (!confirm(`WARNING: Are you SURE you want to delete the "${name}" folder?\n\nThis will permanently delete:\n- All Bookmarks in this folder\n- All Notes in this folder`)) return;
+    
     try {
         await fetch(`${API_BASE}/folders/${id}`, { method: 'DELETE' });
-        loadFolders();
+        
+        // 1. Refresh Bookmark Views
+        loadFolders(); 
         loadBookmarks();
+        
+        // 2. Refresh Note Views
+        loadNoteFolders();
+        loadNotes();
+
+        // 3. Reset filters if we were looking at the deleted folder
+        if (currentFolderFilter == id) {
+            setViewFolder(null, 'All');
+        }
+        if (currentNoteFolder == id) {
+            currentNoteFolder = null;
+            // Visual feedback: clear the editor if the deleted folder contained the active note
+            // (Optional, but safer to just leave the editor content or clear it)
+        }
+
     } catch(err) { console.error("Failed to delete folder", err); }
 }
 
@@ -545,49 +655,98 @@ let saveTimer = null;
 async function loadNotes() {
     try {
         const res = await fetch(`${API_BASE}/notes`);
-        const notes = await res.json();
-        const list = document.getElementById('notes-list-ul');
-        list.innerHTML = '';
-        list.style.listStyle = 'none';
-        list.style.padding = '0';
-        notes.forEach(note => {
-            const li = document.createElement('li');
-            li.style.padding = '10px';
-            li.style.borderBottom = '1px solid #eee';
-            li.style.cursor = 'pointer';
-            li.innerHTML = `<strong>${note.title || 'Untitled Note'}</strong><br><small style="color:#888">${new Date(note.created_at).toLocaleDateString()}</small>`;
-            li.onclick = () => openNote(note.id);
-            list.appendChild(li);
-        });
+        allNotesCache = await res.json();
+        renderNotesList();
     } catch (err) { console.error(err); }
+}
+function filterNotesLocally(query) {
+    currentNoteSearch = query.toLowerCase();
+    renderNotesList();
+}
+
+function renderNotesList() {
+    const list = document.getElementById('notes-list-ul');
+    list.innerHTML = '';
+    
+    // Filter
+    let displayNotes = allNotesCache;
+    
+    // 1. By Folder
+    if (currentNoteFolder !== null) {
+        displayNotes = displayNotes.filter(n => n.folder_id === currentNoteFolder);
+    }
+    
+    // 2. By Search
+    if (currentNoteSearch) {
+        displayNotes = displayNotes.filter(n => 
+            (n.title && n.title.toLowerCase().includes(currentNoteSearch)) || 
+            (n.content && n.content.toLowerCase().includes(currentNoteSearch))
+        );
+    }
+
+    if (displayNotes.length === 0) {
+        list.innerHTML = '<li style="padding:15px; color:#999; text-align:center;">No notes found.</li>';
+        return;
+    }
+
+    displayNotes.forEach(note => {
+        const li = document.createElement('li');
+        li.style.padding = '12px';
+        li.style.borderBottom = '1px solid #f0f0f0';
+        li.style.cursor = 'pointer';
+        li.style.background = (activeNoteId === note.id) ? '#e6f7ff' : 'white';
+        
+        li.innerHTML = `
+            <div style="font-weight:600; font-size:14px; color:#333;">${note.title || 'Untitled'}</div>
+            <div style="font-size:11px; color:#888; margin-top:4px;">
+                ${new Date(note.created_at).toLocaleDateString()}
+            </div>
+        `;
+        
+        li.onclick = () => openNote(note.id);
+        list.appendChild(li);
+    });
 }
 
 async function createNewNote() {
-    const res = await fetch(`${API_BASE}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Untitled Note', content: '' }) });
-    const data = await res.json();
-    loadNotes(); 
-    openNote(data.id); 
+    // Default to the currently viewed folder, or null if viewing "All"
+    const targetFolder = currentNoteFolder; 
+    
+    try {
+        const res = await fetch(`${API_BASE}/notes`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ 
+                title: 'Untitled Note', 
+                content: '',
+                folderId: targetFolder 
+            }) 
+        });
+        const data = await res.json();
+        
+        // Reload list and open the new note
+        await loadNotes(); 
+        openNote(data.id); 
+    } catch (err) { console.error(err); }
 }
 
 async function openNote(id) {
     activeNoteId = id;
+    
+    // 1. Fetch details
     const res = await fetch(`${API_BASE}/notes/${id}`);
     const note = await res.json();
+    
+    // 2. Populate Editor
     document.getElementById('note-title-input').value = note.title || '';
     document.getElementById('note-editor').innerHTML = note.content || '';
     
-    const saveBtn = document.querySelector('.save-float');
-    let delBtn = document.getElementById('delete-note-btn');
-    if (!delBtn) {
-        delBtn = document.createElement('button');
-        delBtn.id = 'delete-note-btn';
-        delBtn.innerText = "Delete Note";
-        delBtn.style.background = "#ff4444";
-        delBtn.style.color = "white";
-        delBtn.style.marginLeft = "10px";
-        delBtn.onclick = deleteNote;
-        saveBtn.after(delBtn);
-    }
+    // 3. Set Folder Dropdown
+    const folderSelect = document.getElementById('note-folder-select');
+    folderSelect.value = note.folder_id || ""; // Select the correct folder or "Uncategorized"
+
+    // 4. Update Visual Highlight in List
+    renderNotesList(); // Re-render to show the "active" blue background on the list item
 }
 
 async function deleteNote() {
@@ -605,16 +764,32 @@ async function deleteNote() {
 
 async function saveCurrentNote() {
     if (!activeNoteId) return;
+    
     const title = document.getElementById('note-title-input').value;
     const content = document.getElementById('note-editor').innerHTML;
+    const folderId = document.getElementById('note-folder-select').value; // Get selected folder
+
     try {
-        await fetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content }) });
+        await fetch(`${API_BASE}/notes/${activeNoteId}`, { 
+            method: 'PUT', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ title, content, folderId }) 
+        });
+        
+        // Visual Feedback
         const btn = document.querySelector('.save-float');
         const originalText = btn.innerText;
         btn.innerText = "Saved!";
         setTimeout(() => btn.innerText = originalText, 1000);
+        
+        // Refresh list (in case title changed or it moved folders)
         loadNotes(); 
     } catch (err) { console.error('Save failed', err); }
+}
+
+function moveCurrentNote(newFolderId) {
+    // Simply trigger a save. The save function reads the value of the dropdown.
+    saveCurrentNote();
 }
 
 function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveCurrentNote, 1000); }

@@ -127,15 +127,50 @@
 
             <!-- Research View -->
             <div id="view-research" class="view-section hidden">
-                <div class="research-layout">
-                    <div class="notes-list-sidebar">
-                        <button onclick="createNewNote()">+ New Note</button>
-                        <ul id="notes-list-ul"></ul>
+                <div class="research-layout" style="display: flex; height: 85vh; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    
+                    <!-- COLUMN 1: FOLDERS -->
+                    <div class="research-folders" style="width: 200px; background: #f8f9fa; border-right: 1px solid #ddd; display: flex; flex-direction: column;">
+                        <div style="padding: 15px; border-bottom: 1px solid #ddd; font-weight: bold; background: #eee;">
+                            Folders
+                        </div>
+                        <div id="note-folder-list" style="flex: 1; overflow-y: auto;">
+                            <!-- Folders load here -->
+                        </div>
+                        <div style="padding: 10px; border-top: 1px solid #ddd; text-align: center;">
+                            <button onclick="createNewFolderForNotes()" style="width: 100%; font-size: 12px;">+ New Folder</button>
+                        </div>
                     </div>
-                    <div class="note-editor-area">
-                        <input type="text" id="note-title-input" placeholder="Note Title">
-                        <div id="note-editor" contenteditable="true" class="block-editor"></div>
-                        <button onclick="saveCurrentNote()" class="save-float">Save</button>
+
+                    <!-- COLUMN 2: NOTE LIST -->
+                    <div class="notes-list-sidebar" style="width: 250px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column;">
+                        <div style="padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd;">
+                            <input type="text" 
+                                placeholder="Search notes..." 
+                                onkeyup="filterNotesLocally(this.value)"
+                                style="width: 90%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 5px;">
+                            <button onclick="createNewNote()" style="width: 100%; background: #28a745; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer;">+ New Note</button>
+                        </div>
+                        <div id="notes-list-container" style="flex: 1; overflow-y: auto;">
+                            <ul id="notes-list-ul" style="list-style: none; padding: 0; margin: 0;"></ul>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3: EDITOR -->
+                    <div class="note-editor-area" style="flex: 1; display: flex; flex-direction: column; background: #fff;">
+                        <input type="text" id="note-title-input" placeholder="Note Title" style="font-size: 20px; font-weight: bold; padding: 20px; border: none; border-bottom: 1px solid #eee; outline: none;">
+                        
+                        <div style="padding: 10px; background: #f9f9f9; border-bottom: 1px solid #eee; font-size: 12px; color: #666; display: flex; justify-content: space-between; align-items: center;">
+                            <span>
+                                Folder: <select id="note-folder-select" onchange="moveCurrentNote(this.value)" style="margin-left: 5px;"></select>
+                            </span>
+                            <div>
+                                <button class="save-float" onclick="saveCurrentNote()" style="padding: 4px 10px;">Save</button>
+                                <button id="delete-note-btn" onclick="deleteNote()" style="background: #ff4444; color: white; border: none; padding: 4px 10px; margin-left: 5px; border-radius: 3px; cursor: pointer;">Delete</button>
+                            </div>
+                        </div>
+
+                        <div id="note-editor" contenteditable="true" class="block-editor" style="flex: 1; padding: 20px; outline: none; overflow-y: auto; line-height: 1.6;"></div>
                     </div>
                 </div>
             </div>

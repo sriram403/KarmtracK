@@ -137,7 +137,8 @@ app.put('/api/tasks/:id', (req, res) => {
 
 // --- Notes ---
 app.get('/api/notes', (req, res) => {
-    db.all("SELECT id, title, created_at FROM notes ORDER BY created_at DESC", [], (err, rows) => {
+    // UPDATED: Now selects folder_id
+    db.all("SELECT id, title, content, folder_id, created_at FROM notes ORDER BY created_at DESC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -151,16 +152,23 @@ app.get('/api/notes/:id', (req, res) => {
 });
 
 app.post('/api/notes', (req, res) => {
-    const { title, content } = req.body;
-    db.run("INSERT INTO notes (title, content) VALUES (?, ?)", [title, content], function(err) {
+    // UPDATED: Accepts folderId
+    const { title, content, folderId } = req.body;
+    db.run("INSERT INTO notes (title, content, folder_id) VALUES (?, ?, ?)", [title, content, folderId || null], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID });
+        res.json({ id: this.lastID, title, folder_id: folderId });
     });
 });
 
 app.put('/api/notes/:id', (req, res) => {
-    const { title, content } = req.body;
-    db.run("UPDATE notes SET title = ?, content = ? WHERE id = ?", [title, content, req.params.id], (err) => {
+    // UPDATED: Accepts folderId updates
+    const { title, content, folderId } = req.body;
+    
+    // Dynamic update query
+    let sql = "UPDATE notes SET title = COALESCE(?, title), content = COALESCE(?, content), folder_id = COALESCE(?, folder_id) WHERE id = ?";
+    let params = [title, content, folderId, req.params.id];
+
+    db.run(sql, params, (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "Note saved" });
     });
@@ -381,23 +389,24 @@ app.post('/api/folders', (req, res) => {
 
 app.delete('/api/folders/:id', (req, res) => {
     const folderId = req.params.id;
-    // Transaction to ensure both operations succeed or fail together
     db.serialize(() => {
         db.run("BEGIN TRANSACTION");
-        // 1. Delete all bookmarks within this folder
+        
+        // 1. Delete Bookmarks in folder
         db.run("DELETE FROM bookmarks WHERE folder_id = ?", folderId, (err) => {
-            if (err) {
-                db.run("ROLLBACK");
-                return res.status(500).json({ error: "Failed to delete bookmarks in folder." });
-            }
-            // 2. Delete the folder itself
-            db.run("DELETE FROM folders WHERE id = ?", folderId, (err) => {
-                if (err) {
-                    db.run("ROLLBACK");
-                    return res.status(500).json({ error: "Failed to delete folder." });
-                }
-                db.run("COMMIT");
-                res.json({ message: "Folder and all its bookmarks have been deleted." });
+            if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: "Error deleting bookmarks" }); }
+            
+            // 2. NEW: Delete Notes in folder
+            db.run("DELETE FROM notes WHERE folder_id = ?", folderId, (err) => {
+                if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: "Error deleting notes" }); }
+
+                // 3. Delete the Folder itself
+                db.run("DELETE FROM folders WHERE id = ?", folderId, (err) => {
+                    if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: "Error deleting folder" }); }
+                    
+                    db.run("COMMIT");
+                    res.json({ message: "Folder and all contents (bookmarks & notes) deleted." });
+                });
             });
         });
     });

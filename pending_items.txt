@@ -1,5 +1,4 @@
-1.1 bookmark should contains folders, like work, memes and so on.. so also give an option for me to create folder or select folder to put the bookmark there right beside save button
-2. inside note section let me create folders as well, so I can separate the notes into good order like for work, for personal time, for work 2
+2. inside note section let me create folders as well, so I can separate the notes into good order like for work, for personal time, for work, for research and so on.. same should be searchable should be deletable either entire folder or just one note
 3. on the tasks, inside give me option to toggle timer, like the clock ticking I should have option for start stop and reset the clock, when every I start the clock make note of that time, when ever I stop the clock make note of that well,(so I know how much time I took to complete the tasks, and how many breaks I took in between, so saving this would be good for the future stats window in the dashboard), 
 4. the tasks doesn't have calendar view on the dashboard build this feature so I can view all the tasks but on the calendar view
 5. each tasks I should be able to click and make notes and check marks as well, rn I can't do that
