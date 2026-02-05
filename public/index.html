@@ -3,243 +3,246 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>👁️Karmic Tracker👁️</title>
+    <title>👁️ Karmic Tracker 👁️</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: Space Grotesk for that Cyber-Pop look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </head>
 <body>
     <div class="app-container">
-        <nav class="sidebar">
-        <h2>KarmtracK⌛</h2>
         
-        <!-- NEW: Global Search Input -->
-        <div style="margin-bottom: 20px;">
-            <input type="text" id="global-search-input" placeholder="🔍 Search everything..." 
-                style="width: 90%; padding: 8px; border-radius: 4px; border: none;"
-                onkeyup="performSearch(this.value)">
-        </div>
+        <!-- SIDEBAR: The Floating Pill -->
+        <nav class="sidebar">
+            <h2>KarmtracK</h2>
+            
+            <div style="margin-bottom: 20px; position: relative;">
+                <input type="text" id="global-search-input" placeholder="🔍 Find the lost fragments..." 
+                    style="width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: white; border-radius: 8px;"
+                    onkeyup="performSearch(this.value)">
+            </div>
 
-        <ul>
-                <li onclick="switchTab('dashboard')" class="active" id="nav-dashboard"><span class="material-icons">dashboard</span> Dashboard</li>
-                <li onclick="switchTab('bookmarks')" id="nav-bookmarks"><span class="material-icons">bookmarks</span> Bookmarks</li>
-                <li onclick="switchTab('tasks')" id="nav-tasks"><span class="material-icons">check_circle</span> Tasks & Calendar</li>
-                <li onclick="switchTab('research')" id="nav-research"><span class="material-icons">library_books</span> Research</li>
+            <ul>
+                <li onclick="switchTab('dashboard')" class="active" id="nav-dashboard">
+                    <span class="material-icons">dashboard</span> Dashboard
+                </li>
+                <li onclick="switchTab('bookmarks')" id="nav-bookmarks">
+                    <span class="material-icons">bookmarks</span> Bookmarks
+                </li>
+                <li onclick="switchTab('tasks')" id="nav-tasks">
+                    <span class="material-icons">check_circle</span> Tasks & Cal
+                </li>
+                <li onclick="switchTab('research')" id="nav-research">
+                    <span class="material-icons">library_books</span> Research
+                </li>
             </ul>
-            <!-- NEW: FOLDER LIST SIDEBAR -->
-            <div class="folder-list-sidebar">
-                <h3>Folders</h3>
-                <div id="sidebar-folders"></div>
-            </div>
-            <div class="tag-cloud-sidebar">
-                <h3>Tags</h3>
-                <div id="sidebar-tags"></div>
-            </div>
+
+            <!-- Folders Section -->
+            <div class="sidebar-section-title">Folders</div>
+            <div id="sidebar-folders" style="flex: 1; overflow-y: auto; max-height: 200px;"></div>
+
+            <!-- Tags Section -->
+            <div class="sidebar-section-title">Tags</div>
+            <div id="sidebar-tags" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
         </nav>
 
+        <!-- MAIN CONTENT: The Glass Pane -->
         <main class="content">
-            <!-- PASTE THIS RIGHT AFTER <main class="content"> -->
+            
+            <!-- MODAL: Floating Task Window -->
             <div id="task-modal-backdrop" class="hidden">
                 <div id="task-modal-content">
-                    <!-- Header -->
                     <div class="task-modal-header">
                         <h2 id="task-modal-title">Task Title</h2>
-                        <button id="task-modal-close" onclick="closeTaskModal()"> &times; </button>
+                        <button id="task-modal-close" onclick="closeTaskModal()" style="color:white;"> &times; </button>
                     </div>
 
-                    <!-- Body -->
                     <div class="task-modal-body">
-                        <!-- Left Side: Notes & Checklist -->
                         <div class="task-modal-main">
-                            <h3>Notes</h3>
+                            <h3 style="color: var(--accent-cyan);">Notes & Thoughts</h3>
                             <div id="task-modal-notes" class="block-editor" contenteditable="true"></div>
                             
-                            <h3 style="margin-top:20px;">Checklist</h3>
+                            <h3 style="margin-top:20px; color: var(--accent-cyan);">Sub-Routine (Checklist)</h3>
                             <div id="task-modal-progress" class="progress-bar-container">
-                            <div id="task-modal-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
-                            <span id="task-modal-progress-text" class="progress-bar-text">0%</span>
+                                <div id="task-modal-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                                <span id="task-modal-progress-text" class="progress-bar-text">0%</span>
                             </div>
                             <div id="task-modal-checklist"></div>
                             <div class="add-checklist-item">
-                                <input type="text" id="task-checklist-input" placeholder="New to-do item...">
-                                <button onclick="addChecklistItem()">Add</button>
+                                <input type="text" id="task-checklist-input" placeholder="Add new step...">
+                                <button onclick="addChecklistItem()" style="background: var(--accent-cyan); color: black; border: none; border-radius: 4px; padding: 0 15px;">Add</button>
                             </div>
                         </div>
 
-                        <!-- Right Side: Stats & Info -->
                         <div class="task-modal-sidebar">
-                            <h4>Details</h4>
+                            <h4 style="color: var(--primary-red);">Metadata</h4>
                             <div id="task-modal-stats">
                                 <p><strong>Status:</strong> <span id="task-stat-status"></span></p>
-                                <p><strong>Breaks Taken:</strong> <span id="task-stat-breaks"></span></p>
-                                <p><strong>Time Logged:</strong> <span id="task-stat-time"></span></p>
+                                <p><strong>Breaks:</strong> <span id="task-stat-breaks"></span></p>
+                                <p><strong>Time:</strong> <span id="task-stat-time"></span></p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Footer -->
                     <div class="task-modal-footer">
-                        <button onclick="saveTaskDetails()">Save & Close</button>
+                        <button onclick="saveTaskDetails()" style="background: var(--primary-red); color: white; border: none; padding: 10px 20px; border-radius: 4px;">Save & Close</button>
                     </div>
                 </div>
             </div>
-            <!-- NEW: Search Results View -->
+
+            <!-- VIEW: Search Results -->
             <div id="view-search" class="view-section hidden">
                 <h1>Search Results</h1>
                 <div id="search-results-container"></div>
             </div>
-            <!-- Dashboard View -->
+
+            <!-- VIEW: Dashboard -->
             <div id="view-dashboard" class="view-section active">
-            <h1>Dashboard</h1>
-            
-            <!-- Top Stats -->
-            <div class="stats-container">
-                <div class="stat-card"><h3>Tasks Pending</h3><p id="dash-task-count">0</p></div>
-                <div class="stat-card"><h3>Total Bookmarks</h3><p id="dash-bm-count">0</p></div>
-            </div>
-
-            <!-- NEW: Calendar Section -->
-            <div class="dashboard-calendar-wrapper" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div class="cal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <button onclick="changeDashMonth(-1)" style="cursor:pointer; padding:5px 15px;">&lt; Prev</button>
-                    <h2 id="dash-cal-title" style="margin: 0;">Month Year</h2>
-                    <button onclick="changeDashMonth(1)" style="cursor:pointer; padding:5px 15px;">Next &gt;</button>
-                </div>
+                <h1>Overview</h1>
                 
-                <!-- Days of Week Header -->
-                <div class="cal-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 10px; color: #666;">
-                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3>PENDING CHAOS</h3>
+                        <p id="dash-task-count">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>HOARDED LINKS</h3>
+                        <p id="dash-bm-count">0</p>
+                    </div>
                 </div>
 
-                <!-- The Days Grid -->
-                <div id="dash-cal-grid" class="cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;">
-                    <!-- Javascript will fill this -->
+                <div class="dashboard-calendar-wrapper" style="margin-top: 30px; padding: 20px; border-radius: 20px;">
+                    <div class="cal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <button onclick="changeDashMonth(-1)" style="background: #333; color: white; border: none; border-radius: 4px; padding: 5px 15px;">&lt;</button>
+                        <h2 id="dash-cal-title" style="margin: 0; color: var(--accent-cyan);">Month Year</h2>
+                        <button onclick="changeDashMonth(1)" style="background: #333; color: white; border: none; border-radius: 4px; padding: 5px 15px;">&gt;</button>
+                    </div>
+                    
+                    <div class="cal-grid-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 10px; color: var(--text-muted);">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+
+                    <div id="dash-cal-grid" class="cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;"></div>
                 </div>
             </div>
 
-            <!-- Old Agenda (Optional, we can keep it below or remove it. I'll leave a container just in case) -->
-            <div id="dash-agenda" style="margin-top: 20px;"></div>
-        </div>
-
-            <!-- Bookmarks View -->
+            <!-- VIEW: Bookmarks -->
             <div id="view-bookmarks" class="view-section hidden">
-                <div class="header-actions" style="display: flex; flex-direction: column; gap: 15px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <!-- Row 1: Title and View Toggles -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                        <h1 style="margin: 0; display:flex; align-items:center; gap:15px;">Bookmarks</h1>
+                <div class="header-actions" style="background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
+                        <h1 style="margin: 0; font-size: 1.8rem;">Bookmarks</h1>
                         <div class="view-toggles">
-                            <button onclick="toggleBmView('list')" style="padding: 6px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px;" title="List View"><span class="material-icons" style="font-size: 20px; vertical-align: middle;">list</span></button>
-                            <button onclick="toggleBmView('grid')" style="padding: 6px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px;" title="Grid View"><span class="material-icons" style="font-size: 20px; vertical-align: middle;">grid_view</span></button>
+                            <button onclick="toggleBmView('list')" style="background: #333; color: white; border: none; border-radius: 4px; padding: 8px;"><span class="material-icons">list</span></button>
+                            <button onclick="toggleBmView('grid')" style="background: #333; color: white; border: none; border-radius: 4px; padding: 8px;"><span class="material-icons">grid_view</span></button>
                         </div>
                     </div>
 
-                    <!-- Row 2: Inputs and Action Buttons -->
                     <div style="display: flex; gap: 15px; align-items: flex-end;">
-                        
-                        <!-- Input Fields Area (Flex Column) -->
                         <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
                             <div style="display: flex; gap: 10px;">
-                                <input type="text" id="bm-url-input" placeholder="Paste URL here..." style="flex: 3; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="text" id="bm-title-input" placeholder="Optional Title..." style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="text" id="bm-url-input" placeholder="Paste URL (Feed the machine)...">
+                                <input type="text" id="bm-title-input" placeholder="Title (Optional)...">
                             </div>
                             <div style="display: flex; gap: 10px;">
-                                <input type="text" id="bm-desc-input" placeholder="Possible Idea? (Why are you saving this?)" style="flex: 3; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="text" id="bm-tag-input" placeholder="Tags (ocr, ai)" style="flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="text" id="bm-desc-input" placeholder="Why? (Justify this hoarding)...">
+                                <input type="text" id="bm-tag-input" placeholder="Tags (e.g. memes, world-domination)...">
                             </div>
                         </div>
 
-                        <!-- Controls Area (Folder + Save Button) -->
                         <div style="display: flex; flex-direction: column; gap: 8px; width: 180px;">
-                            <select id="bm-folder-select" style="padding: 9px; border-radius: 4px; border: 1px solid #ddd; width: 100%; cursor:pointer; background-color:#f9f9f9; font-size: 13px;">
+                            <select id="bm-folder-select" style="padding: 9px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
                                 <!-- Populated by JS -->
                             </select>
-                            <button onclick="addBookmark()" style="padding: 10px; background-color: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                                Save
+                            <button onclick="addBookmark()" style="padding: 10px; background-color: var(--primary-red); color: white; border: none; border-radius: 4px; box-shadow: var(--shadow-red);">
+                                SAVE
                             </button>
                         </div>
                     </div>
                 </div>
-                <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px; background: #fff; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <span class="material-icons" style="color: #888;">search</span>
-                <input type="text" 
-                    placeholder="Filter bookmarks in current view (by title, tag, or description)..." 
-                    onkeyup="filterBookmarksLocally(this.value)"
-                    style="border: none; outline: none; flex: 1; font-size: 15px; background: transparent;">
+                
+                <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px; background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span class="material-icons" style="color: var(--accent-cyan);">search</span>
+                    <input type="text" 
+                        placeholder="Filter current view..." 
+                        onkeyup="filterBookmarksLocally(this.value)"
+                        style="border: none; outline: none; flex: 1; background: transparent;">
                 </div>
+                
                 <div id="bookmark-list"></div>
             </div>
 
-            <!-- Tasks View -->
+            <!-- VIEW: Tasks -->
             <div id="view-tasks" class="view-section hidden">
-                <h1>Tasks & Calendar</h1>
+                <h1>Tasks & Agenda</h1>
                 <div class="task-layout">
                     <div class="kanban-board">
                         <div class="column" id="col-todo">
-                            <h3>Backlog / Todo</h3>
-                            <div class="add-task-row">
-                                <input type="text" id="new-task-input" placeholder="New Task...">
-                                <button onclick="addTask()">Add</button>
+                            <h3>TODO</h3>
+                            <div class="add-task-row" style="margin-bottom: 10px; display: flex; gap: 5px;">
+                                <input type="text" id="new-task-input" placeholder="New Mission..." style="flex: 1; padding: 8px;">
+                                <button onclick="addTask()" style="background: var(--accent-cyan); color: black; border: none; border-radius: 4px;">+</button>
                             </div>
                             <div id="task-list-todo" class="task-container"></div>
                         </div>
                         <div class="column" id="col-progress">
-                            <h3>In Progress</h3>
+                            <h3 style="color: #ffc107; border-color: #ffc107;">IN PROGRESS</h3>
                             <div id="task-list-progress" class="task-container"></div>
                         </div>
                         <div class="column" id="col-done">
-                            <h3>Completed</h3>
+                            <h3 style="color: var(--primary-red); border-color: var(--primary-red);">DONE</h3>
                             <div id="task-list-done" class="task-container"></div>
                         </div>
                     </div>
-                    <div class="calendar-wrapper">
-                        <h3>Schedule</h3>
+                    <div class="calendar-wrapper" style="background: var(--card-bg); color: white;">
+                        <h3 style="color: white; border-bottom: 1px solid #333; padding-bottom: 5px;">Agenda</h3>
                         <div id="simple-calendar"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Research View -->
+            <!-- VIEW: Research -->
             <div id="view-research" class="view-section hidden">
-                <div class="research-layout" style="display: flex; height: 85vh; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                <div class="research-layout" style="display: flex; height: 85vh; border: 1px solid #333; border-radius: 8px; overflow: hidden;">
                     
-                    <!-- COLUMN 1: FOLDERS -->
-                    <div class="research-folders" style="width: 200px; background: #f8f9fa; border-right: 1px solid #ddd; display: flex; flex-direction: column;">
-                        <div style="padding: 15px; border-bottom: 1px solid #ddd; font-weight: bold; background: #eee;">
-                            Folders
+                    <!-- FOLDERS -->
+                    <div class="research-folders" style="width: 200px; display: flex; flex-direction: column;">
+                        <div style="padding: 15px; border-bottom: 1px solid #333; font-weight: bold; background: #222; color: var(--accent-cyan);">
+                            FOLDERS
                         </div>
-                        <div id="note-folder-list" style="flex: 1; overflow-y: auto;">
-                            <!-- Folders load here -->
-                        </div>
-                        <div style="padding: 10px; border-top: 1px solid #ddd; text-align: center;">
-                            <button onclick="createNewFolderForNotes()" style="width: 100%; font-size: 12px;">+ New Folder</button>
+                        <div id="note-folder-list" style="flex: 1; overflow-y: auto;"></div>
+                        <div style="padding: 10px; border-top: 1px solid #333; text-align: center;">
+                            <button onclick="createNewFolderForNotes()" style="width: 100%; font-size: 12px; background: #333; color: white; border: none; padding: 8px;">+ New Folder</button>
                         </div>
                     </div>
 
-                    <!-- COLUMN 2: NOTE LIST -->
-                    <div class="notes-list-sidebar" style="width: 250px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column;">
-                        <div style="padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd;">
+                    <!-- NOTES LIST -->
+                    <div class="notes-list-sidebar" style="width: 250px; display: flex; flex-direction: column;">
+                        <div style="padding: 10px; border-bottom: 1px solid #333; background: #222;">
                             <input type="text" 
                                 placeholder="Search notes..." 
                                 onkeyup="filterNotesLocally(this.value)"
-                                style="width: 90%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 5px;">
-                            <button onclick="createNewNote()" style="width: 100%; background: #28a745; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer;">+ New Note</button>
+                                style="width: 95%; padding: 6px; border: 1px solid #444; border-radius: 4px; margin-bottom: 5px;">
+                            <button onclick="createNewNote()" style="width: 100%; background: var(--accent-cyan); color: black; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: bold;">+ New Note</button>
                         </div>
                         <div id="notes-list-container" style="flex: 1; overflow-y: auto;">
                             <ul id="notes-list-ul" style="list-style: none; padding: 0; margin: 0;"></ul>
                         </div>
                     </div>
 
-                    <!-- COLUMN 3: EDITOR -->
-                    <div class="note-editor-area" style="flex: 1; display: flex; flex-direction: column; background: #fff;">
-                        <input type="text" id="note-title-input" placeholder="Note Title" style="font-size: 20px; font-weight: bold; padding: 20px; border: none; border-bottom: 1px solid #eee; outline: none;">
+                    <!-- EDITOR -->
+                    <div class="note-editor-area" style="flex: 1; display: flex; flex-direction: column;">
+                        <input type="text" id="note-title-input" placeholder="Untitled Note" style="background: transparent; color: white; font-size: 20px; font-weight: bold; padding: 20px; border: none; border-bottom: 1px solid #333; outline: none;">
                         
-                        <div style="padding: 10px; background: #f9f9f9; border-bottom: 1px solid #eee; font-size: 12px; color: #666; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333; font-size: 12px; color: #aaa; display: flex; justify-content: space-between; align-items: center;">
                             <span>
-                                Folder: <select id="note-folder-select" onchange="moveCurrentNote(this.value)" style="margin-left: 5px;"></select>
+                                Folder: <select id="note-folder-select" onchange="moveCurrentNote(this.value)" style="margin-left: 5px; background: #333; color: white; border: none; padding: 2px;"></select>
                             </span>
                             <div>
-                                <button class="save-float" onclick="saveCurrentNote()" style="padding: 4px 10px;">Save</button>
-                                <button id="delete-note-btn" onclick="deleteNote()" style="background: #ff4444; color: white; border: none; padding: 4px 10px; margin-left: 5px; border-radius: 3px; cursor: pointer;">Delete</button>
+                                <button class="save-float" onclick="saveCurrentNote()" style="padding: 4px 10px; background: var(--accent-cyan); color: black; border: none; border-radius: 4px;">Save</button>
+                                <button id="delete-note-btn" onclick="deleteNote()" style="background: var(--primary-red); color: white; border: none; padding: 4px 10px; margin-left: 5px; border-radius: 4px; cursor: pointer;">Delete</button>
                             </div>
                         </div>
 

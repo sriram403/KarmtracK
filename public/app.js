@@ -105,34 +105,50 @@ function renderTaskChecklist() {
     const progressFill = document.getElementById('task-modal-progress-fill');
     const progressText = document.getElementById('task-modal-progress-text');
 
-    // Calculate and display progress
     const progress = calculateChecklistProgress(taskChecklist);
     
     if (taskChecklist.length > 0) {
         progressContainer.style.display = 'block';
+        // Update Progress Bar Colors
+        progressContainer.style.background = '#333';
         progressFill.style.width = `${progress.percent}%`;
-        progressText.innerText = `${progress.percent}% (${progress.text})`;
+        progressFill.style.background = 'var(--accent-cyan)';
+        progressText.innerText = `${progress.percent}%`;
     } else {
-        progressContainer.style.display = 'none'; // Hide if no items
+        progressContainer.style.display = 'none';
     }
 
-    // Render the list items
     container.innerHTML = '';
     if (taskChecklist.length === 0) {
-        container.innerHTML = '<p style="color:#999; text-align:center;">No items yet.</p>';
+        container.innerHTML = '<p style="color:#666; text-align:center; font-style:italic;">No sub-routines defined.</p>';
         return;
     }
 
     taskChecklist.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'checklist-item';
-        if (item.done) div.classList.add('checked');
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.padding = '10px';
+        div.style.borderBottom = '1px solid #333';
+        div.style.color = 'white';
+
+        if (item.done) {
+            div.style.opacity = '0.5';
+            div.style.textDecoration = 'line-through';
+        }
 
         div.innerHTML = `
-            <input type="checkbox" id="check-${index}" ${item.done ? 'checked' : ''} onchange="toggleChecklistItem(${index})">
-            <label for="check-${index}">${item.text}</label>
-            <button class="delete-checklist" onclick="deleteChecklistItem(${index})">&times;</button>
+            <input type="checkbox" id="check-${index}" ${item.done ? 'checked' : ''} onchange="toggleChecklistItem(${index})" style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
+            <label for="check-${index}" style="flex: 1; margin-left: 10px; cursor: pointer;">${item.text}</label>
+            <button class="delete-checklist" onclick="deleteChecklistItem(${index})" style="background:none; border:none; color:#666; font-size:16px; cursor:pointer;">&times;</button>
         `;
+        
+        // Hover for delete button
+        const delBtn = div.querySelector('.delete-checklist');
+        delBtn.onmouseover = () => delBtn.style.color = 'var(--primary-red)';
+        delBtn.onmouseout = () => delBtn.style.color = '#666';
+
         container.appendChild(div);
     });
 }
@@ -178,70 +194,72 @@ function renderDashboardCalendar(tasks) {
     const grid = document.getElementById('dash-cal-grid');
     const title = document.getElementById('dash-cal-title');
     
-    if (!grid || !title) return; // Guard clause in case we aren't on dashboard
+    if (!grid || !title) return;
     
     grid.innerHTML = '';
     
     const year = dashboardDate.getFullYear();
     const month = dashboardDate.getMonth();
     
-    // Update Title
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
     title.innerText = `${monthNames[month]} ${year}`;
 
-    // Date Maths
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startDayIndex = firstDay.getDay(); // 0 (Sun) - 6 (Sat)
+    const startDayIndex = firstDay.getDay();
 
-    // 1. Padding Days (Empty cells before the 1st)
+    // Padding Days (Empty cells)
     for (let i = 0; i < startDayIndex; i++) {
         const blank = document.createElement('div');
         blank.className = 'cal-day-cell';
-        blank.style.background = '#fcfcfc'; // Slightly darker to indicate disabled
+        blank.style.opacity = '0.3'; 
+        blank.style.background = 'transparent';
+        blank.style.border = 'none';
         grid.appendChild(blank);
     }
 
-    // 2. Actual Days
     const todayStr = new Date().toISOString().split('T')[0];
 
     for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
         cell.className = 'cal-day-cell';
         
-        // Generate YYYY-MM-DD string for this cell to match DB format
-        // IMPORTANT: month is 0-indexed in JS, but 1-indexed in YYYY-MM-DD
         const currentMonthStr = (month + 1).toString().padStart(2, '0');
         const currentDayStr = day.toString().padStart(2, '0');
         const dateStr = `${year}-${currentMonthStr}-${currentDayStr}`;
 
         if (dateStr === todayStr) cell.classList.add('today');
 
-        // Day Number
         const num = document.createElement('span');
         num.className = 'cal-day-number';
         num.innerText = day;
         cell.appendChild(num);
 
-        // Find tasks for this day
         const daysTasks = tasks.filter(t => t.due_date === dateStr);
         
         daysTasks.forEach(t => {
             const taskDiv = document.createElement('div');
             taskDiv.className = 'cal-task-item';
             
-            if (t.status === 'done') taskDiv.classList.add('cal-task-done');
-            else if (t.status === 'inprogress') taskDiv.classList.add('cal-task-prog');
-            else taskDiv.classList.add('cal-task-todo');
+            if (t.status === 'done') {
+                taskDiv.style.background = 'rgba(40, 167, 69, 0.2)';
+                taskDiv.style.color = '#75b798';
+                taskDiv.style.textDecoration = 'line-through';
+            } else if (t.status === 'inprogress') {
+                taskDiv.style.background = 'rgba(255, 193, 7, 0.2)';
+                taskDiv.style.color = '#ffc107';
+            } else {
+                taskDiv.style.background = 'rgba(5, 217, 232, 0.2)';
+                taskDiv.style.color = 'var(--accent-cyan)';
+            }
 
             taskDiv.innerText = t.title;
-            taskDiv.title = t.title; // Tooltip
+            taskDiv.title = t.title;
             
-            // Clicking jumps to task tab (simple UX)
-            taskDiv.onclick = () => {
+            taskDiv.onclick = (e) => {
+                e.stopPropagation();
                 switchTab('tasks');
-                // Optional: You could scroll to the task here if you wanted
             };
             
             cell.appendChild(taskDiv);
@@ -311,26 +329,28 @@ async function resetTimer(taskId) {
 }
 
 function switchTab(tabName) {
-    // Hide all main content sections
     document.querySelectorAll('.view-section').forEach(el => {
         el.classList.remove('active');
         el.classList.add('hidden');
     });
     
-    // De-select all sidebar items
     document.querySelectorAll('.sidebar li').forEach(el => el.classList.remove('active'));
 
-    // Show the selected section and highlight the sidebar item
-    document.getElementById(`view-${tabName}`).classList.add('active');
-    document.getElementById(`nav-${tabName}`).classList.add('active');
+    const viewTarget = document.getElementById(`view-${tabName}`);
+    if (viewTarget) {
+        viewTarget.classList.remove('hidden');
+        viewTarget.classList.add('active');
+    }
 
-    // Load the necessary data for the new tab
+    const navTarget = document.getElementById(`nav-${tabName}`);
+    if (navTarget) navTarget.classList.add('active');
+
     if (tabName === 'dashboard') { loadDashboard(); loadTags(); loadFolders(); }
     if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); }
     if (tabName === 'tasks') loadTasks();
     if (tabName === 'research') { 
         loadNotes(); 
-        loadNoteFolders(); // <--- ADD THIS
+        loadNoteFolders();
     }
 }
 async function loadNoteFolders() {
@@ -494,18 +514,15 @@ function toggleBmView(view) {
 }
 
 function renderBookmarks() {
-    // Note: We don't pass 'bookmarks' as argument anymore, we use 'allBookmarksCache'
     const mainContainer = document.getElementById('bookmark-list');
     mainContainer.innerHTML = '';
     mainContainer.className = '';
 
-    // 1. Filter by Folder
+    // 1. Filter Logic
     let displayData = allBookmarksCache;
     if (currentFolderFilter !== null) {
         displayData = displayData.filter(bm => bm.folder_id === currentFolderFilter);
     }
-
-    // 2. Filter by Search Term (Title, URL, Description, or Tags)
     if (currentSearchTerm.trim() !== '') {
         displayData = displayData.filter(bm => {
             const tagString = bm.tags ? bm.tags.join(' ') : '';
@@ -518,30 +535,20 @@ function renderBookmarks() {
         });
     }
 
-    // If no bookmarks found
     if (displayData.length === 0) {
-        mainContainer.innerHTML = '<div style="padding:20px; color:#888;">No bookmarks found matching criteria.</div>';
+        mainContainer.innerHTML = '<div style="padding:20px; color:#666; font-style:italic;">The void stares back... (No bookmarks found)</div>';
         return;
     }
 
-    // 3. Render (Grouped or Flat)
-    // Logic: If we are filtering by Folder OR by Search Term, we show a Flat View.
-    // We only show the "Grouped by Folder" view if showing Everything with no filters.
-    
     const isFiltered = (currentFolderFilter !== null || currentSearchTerm !== '');
 
     if (isFiltered) {
-        // --- FLAT VIEW ---
         const folderContainer = document.createElement('div');
         folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
         mainContainer.appendChild(folderContainer);
-        
-        displayData.forEach(bm => {
-            folderContainer.appendChild(createBookmarkElement(bm));
-        });
-
+        displayData.forEach(bm => folderContainer.appendChild(createBookmarkElement(bm)));
     } else {
-        // --- GROUPED VIEW (Default Dashboard Style) ---
+        // Grouped View
         const groupedByFolder = displayData.reduce((acc, bm) => {
             const folderName = bm.folder_name || 'Uncategorized';
             if (!acc[folderName]) acc[folderName] = [];
@@ -552,10 +559,12 @@ function renderBookmarks() {
         for (const folderName in groupedByFolder) {
             const header = document.createElement('h2');
             header.textContent = folderName;
-            header.style.borderBottom = '2px solid #eee';
+            header.style.borderBottom = '1px solid var(--primary-red)';
             header.style.paddingBottom = '5px';
-            header.style.marginTop = '20px';
-            header.style.color = '#555';
+            header.style.marginTop = '30px';
+            header.style.color = 'var(--text-white)';
+            header.style.fontSize = '1.2rem';
+            header.style.textTransform = 'uppercase';
             mainContainer.appendChild(header);
 
             const folderContainer = document.createElement('div');
@@ -574,66 +583,62 @@ function createBookmarkElement(bm) {
     const div = document.createElement('div');
     div.className = 'bm-item';
     
-    // Check if it's a Twitter/X link for special rendering
     const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
     
-    // Generate Tags HTML (Chip style)
+    // Tags HTML (Neon Chips)
     let tagsHtml = '';
     if (bm.tags && bm.tags.length > 0) {
         tagsHtml = bm.tags.map(t => 
-            `<span style="background:#eef; color:#007bff; padding:2px 6px; border-radius:4px; font-size:10px; margin-right:4px; display:inline-block;">#${t}</span>`
+            `<span style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-right: 4px; display:inline-block; text-transform: uppercase;">#${t}</span>`
         ).join('');
     }
 
-    // Generate Description HTML
+    // Description HTML (Yellow Highlight box)
     const descHtml = (bm.description && bm.description !== "Pending...") 
-        ? `<div style="margin-top: 8px; font-size: 13px; color: #444; background: #fffbe6; padding: 8px; border-left: 3px solid #ffd700; word-wrap: break-word;">💡 ${bm.description}</div>` 
+        ? `<div style="margin-top: 10px; font-size: 13px; color: #ffc107; background: rgba(255, 193, 7, 0.1); padding: 8px; border-left: 2px solid #ffc107; font-style: italic;">"${bm.description}"</div>` 
         : '';
 
-    // Action Buttons HTML
+    // Buttons HTML
     const buttonsHtml = `
-        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:11px; color:white; background:#007bff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">Edit</button>
-        <button onclick="deleteBookmark(${bm.id})" style="font-size:11px; color:white; background:#ff4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>
+        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:10px; color:black; background:white; border:none; padding:4px 8px; border-radius:2px; margin-right:5px;">EDIT</button>
+        <button onclick="deleteBookmark(${bm.id})" style="font-size:10px; color:white; background:var(--primary-red); border:none; padding:4px 8px; border-radius:2px;">DEL</button>
     `;
 
     if (currentBmView === 'grid') {
-        // --- GRID VIEW LAYOUT ---
+        // --- GRID VIEW ---
         let mediaHtml = '';
         if (isTwitter) {
             mediaHtml = navigator.onLine 
-                ? `<div style="min-height:100px; display:flex; justify-content:center; overflow:hidden;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="light"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` 
-                : `<div style="padding:20px; text-align:center; background:#f8f9fa; border:1px dashed #ccc; font-size:12px;">Offline Preview</div>`;
+                ? `<div style="min-height:100px; display:flex; justify-content:center; overflow:hidden; margin-bottom:10px;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` 
+                : `<div style="padding:20px; text-align:center; background:#222; border:1px dashed #444; font-size:12px; color:#666;">Offline Preview</div>`;
         } else if (bm.thumbnail) {
-            mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px; object-fit: cover;" onerror="this.style.display='none'">`;
+            mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px; margin-bottom:10px; object-fit: cover; opacity: 0.9;" onerror="this.style.display='none'">`;
         }
         
         div.innerHTML = `
             ${mediaHtml}
-            <h4 style="margin:10px 0 5px 0; word-break: break-word; line-height: 1.4;">
-                <a href="${bm.url}" target="_blank" style="text-decoration:none; color:#333;">${bm.title}</a>
+            <h4 style="margin:0 0 5px 0; word-break: break-word; line-height: 1.4; font-size: 1rem;">
+                <a href="${bm.url}" target="_blank" style="text-decoration:none;">${bm.title}</a>
             </h4>
             ${descHtml}
-            
-            <!-- Footer: Flex container for Tags (Left) and Buttons (Right) -->
-            <div style="margin-top:12px; padding-top:8px; border-top:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
+            <div style="margin-top:15px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
                 <div style="flex:1; display:flex; flex-wrap:wrap; gap:2px;">${tagsHtml}</div>
                 <div style="white-space:nowrap; margin-left:10px;">${buttonsHtml}</div>
             </div>`;
 
     } else {
-        // --- LIST VIEW LAYOUT ---
+        // --- LIST VIEW ---
         div.style.display = 'flex';
         div.style.justifyContent = 'space-between';
         div.style.alignItems = 'center';
-        div.style.padding = '10px';
-        div.style.borderBottom = '1px solid #eee';
+        div.style.padding = '15px';
         
         div.innerHTML = `
             <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold; color:#333;">${bm.title}</a>
+                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold; font-size: 1.1rem; color: white;">${bm.title}</a>
                 <div style="font-size:12px; color:#666; margin-top:2px;">${bm.url}</div>
                 ${descHtml}
-                <div style="margin-top:5px;">${tagsHtml}</div>
+                <div style="margin-top:8px;">${tagsHtml}</div>
             </div>
             <div style="display:flex; align-items:center;">
                 ${buttonsHtml}
@@ -660,9 +665,8 @@ async function loadFolders() {
         const res = await fetch(`${API_BASE}/folders`);
         const folders = await res.json();
         
+        // 1. Update Dropdown
         const selectDropdown = document.getElementById('bm-folder-select');
-        const sidebarList = document.getElementById('sidebar-folders');
-        
         selectDropdown.innerHTML = '<option value="">Uncategorized</option>';
         folders.forEach(folder => {
             const option = document.createElement('option');
@@ -670,20 +674,21 @@ async function loadFolders() {
             option.textContent = folder.name;
             selectDropdown.appendChild(option);
         });
-        
         const createOption = document.createElement('option');
         createOption.value = 'CREATE_NEW';
-        createOption.textContent = '--- Create New Folder ---';
+        createOption.textContent = '+ Create New Folder';
         selectDropdown.appendChild(createOption);
         
+        // 2. Update Sidebar List
+        const sidebarList = document.getElementById('sidebar-folders');
         sidebarList.innerHTML = '';
 
         const allDiv = document.createElement('div');
-        allDiv.style.padding = '8px 5px';
+        allDiv.style.padding = '8px 10px';
         allDiv.style.cursor = 'pointer';
-        allDiv.style.color = '#fff';
+        allDiv.style.color = 'var(--text-white)';
         allDiv.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-        allDiv.style.marginBottom = '5px';
+        allDiv.style.fontSize = '14px';
         allDiv.innerHTML = '📂 <strong>View All</strong>';
         allDiv.onclick = () => {
             switchTab('bookmarks');
@@ -696,16 +701,18 @@ async function loadFolders() {
             div.style.display = 'flex';
             div.style.justifyContent = 'space-between';
             div.style.alignItems = 'center';
-            div.style.padding = '5px';
-            div.style.color = '#ddd';
-            div.style.fontSize = '14px'; 
+            div.style.padding = '8px 10px';
+            div.style.color = '#aaa';
+            div.style.fontSize = '14px';
+            div.style.transition = '0.2s';
             
+            div.onmouseover = () => { div.style.color = 'var(--accent-cyan)'; div.style.background = 'rgba(255,255,255,0.05)'; };
+            div.onmouseout = () => { div.style.color = '#aaa'; div.style.background = 'transparent'; };
+
             const nameSpan = document.createElement('span');
             nameSpan.textContent = folder.name;
             nameSpan.style.cursor = 'pointer';
             nameSpan.style.flex = '1'; 
-            nameSpan.onmouseover = () => nameSpan.style.color = '#fff';
-            nameSpan.onmouseout = () => nameSpan.style.color = '#ddd';
             nameSpan.onclick = () => {
                 switchTab('bookmarks');
                 setViewFolder(folder.id, folder.name);
@@ -713,7 +720,7 @@ async function loadFolders() {
 
             const delBtn = document.createElement('button');
             delBtn.innerHTML = '&times;';
-            delBtn.style.color = '#ff6b6b'; 
+            delBtn.style.color = 'var(--primary-red)'; 
             delBtn.style.border = 'none'; 
             delBtn.style.background = 'none'; 
             delBtn.style.cursor = 'pointer';
@@ -787,21 +794,26 @@ async function loadTags() {
             const wrapper = document.createElement('div');
             wrapper.style.display = 'inline-flex';
             wrapper.style.alignItems = 'center';
-            wrapper.style.margin = '4px';
-            wrapper.style.background = 'rgba(255,255,255,0.15)';
+            wrapper.style.margin = '2px';
+            wrapper.style.background = 'transparent';
+            wrapper.style.border = '1px solid var(--accent-cyan)';
             wrapper.style.borderRadius = '15px';
-            wrapper.style.padding = '4px 10px';
+            wrapper.style.padding = '2px 8px';
+            
             const span = document.createElement('span');
-            span.style.fontSize = '12px';
-            span.style.color = '#fff';
+            span.style.fontSize = '11px';
+            span.style.color = 'var(--accent-cyan)';
             span.innerText = `${tag.name} (${tag.count})`;
+            
             const delBtn = document.createElement('span');
             delBtn.innerHTML = '&times;';
             delBtn.style.marginLeft = '8px';
             delBtn.style.cursor = 'pointer';
-            delBtn.style.color = '#ff6b6b';
+            delBtn.style.color = 'var(--primary-red)';
             delBtn.style.fontWeight = 'bold';
+            delBtn.style.fontSize = '14px';
             delBtn.onclick = (e) => { e.stopPropagation(); deleteTag(tag.id, tag.name); };
+            
             wrapper.appendChild(span);
             wrapper.appendChild(delBtn);
             container.appendChild(wrapper);
@@ -877,80 +889,93 @@ function renderTasks(tasks) {
     document.getElementById('task-list-done').innerHTML = '';
 
     tasks.forEach(task => {
-        // 2. Create the card container and set up modal click
+        // 2. Create the card container
         const card = document.createElement('div');
         card.className = 'task-card';
-        card.style.background = '#fff';
-        card.style.padding = '10px';
-        card.style.marginBottom = '10px';
-        card.style.borderRadius = '4px';
-        card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        // Base styling moved to CSS, specific overrides here:
+        card.style.padding = '15px';
+        card.style.marginBottom = '15px';
+        card.style.borderRadius = '8px';
         card.style.cursor = 'pointer';
+        card.style.position = 'relative';
+        card.style.overflow = 'hidden';
 
-        // Open modal only if not clicking a button or input
+        // Dynamic Border/Background based on status
+        if(task.status === 'done') {
+            card.style.borderLeft = '4px solid var(--primary-red)';
+            card.style.opacity = '0.7';
+        } else if (task.status === 'inprogress') {
+            card.style.borderLeft = '4px solid var(--accent-cyan)';
+            card.style.background = 'linear-gradient(90deg, #252525 0%, #2a2a2a 100%)';
+        } else {
+            card.style.borderLeft = '4px solid #444';
+        }
+
+        // Open modal click handler
         card.onclick = (e) => {
             if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !e.target.closest('button')) {
                 openTaskModal(task.id);
             }
         };
 
-        // 3. --- DEFINE ALL UI PIECES ---
+        // 3. UI Components
 
-        // Status Controls (for moving between columns)
+        // Status Controls
         let controls = '';
         if (task.status === 'todo') {
-            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Start Work &rarr;</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:var(--accent-cyan); color:black; border:none; padding:4px 8px; border-radius:4px;">START &rarr;</button>`;
         } else if (task.status === 'inprogress') {
-            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'todo')" style="font-size:11px;">&larr; Back</button> <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'done')" style="font-size:11px;">Done &checkmark;</button>`;
+            controls = `
+                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'todo')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">&larr; PAUSE</button> 
+                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'done')" style="font-size:10px; background:var(--primary-red); color:white; border:none; padding:4px 8px; border-radius:4px; margin-left:5px;">DONE</button>`;
         } else {
-            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:11px;">Reopen</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">RE-OPEN</button>`;
         }
 
-        // Due Date Input
+        // Date Picker
         let dateHtml = task.due_date 
-            ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`
-            : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#888; cursor:pointer;">`;
+            ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">`
+            : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
         
-        // Timer Controls
+        // Timer Logic
         const past = parseInt(task.past_duration) || 0;
         let timerControls = '';
         if (task.active_start) {
             const activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}"`;
             timerControls = `
-                <div style="display:flex; align-items:center;">
-                    <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:#007bff; margin-right:10px; font-size:12px;">Syncing...</span>
-                    <button onclick="event.stopPropagation(); stopTimer(${task.id})" style="border:1px solid #ff4444; background:#fff; color:#ff4444; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">⏸ Stop</button>
+                <div style="display:flex; align-items:center; background: rgba(5, 217, 232, 0.1); padding: 5px; border-radius: 4px;">
+                    <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:var(--accent-cyan); margin-right:10px; font-size:12px;">Syncing...</span>
+                    <button onclick="event.stopPropagation(); stopTimer(${task.id})" style="border:none; background:none; color:var(--primary-red); cursor:pointer; font-size:16px; padding:0; line-height:1;">⏹</button>
                 </div>`;
         } else {
             timerControls = `
                 <div style="display:flex; align-items:center;">
-                    <span class="task-timer-display" style="font-family:monospace; color:#666; margin-right:10px; font-size:12px;">${formatTime(past)}</span>
-                    <button onclick="event.stopPropagation(); startTimer(${task.id})" style="border:1px solid #28a745; background:#fff; color:#28a745; border-radius:3px; cursor:pointer; font-size:11px; padding:2px 6px;">▶ Start</button>
-                    <button onclick="event.stopPropagation(); resetTimer(${task.id})" title="Reset Timer" style="border:none; background:none; color:#bbb; cursor:pointer; font-size:14px; margin-left:5px; padding:0;">↺</button>
+                    <span class="task-timer-display" style="font-family:monospace; color:#888; margin-right:10px; font-size:12px;">${formatTime(past)}</span>
+                    <button onclick="event.stopPropagation(); startTimer(${task.id})" style="border:none; background:none; color:var(--accent-cyan); cursor:pointer; font-size:16px; padding:0; line-height:1;">▶</button>
+                    <button onclick="event.stopPropagation(); resetTimer(${task.id})" title="Reset" style="border:none; background:none; color:#444; cursor:pointer; font-size:12px; margin-left:8px; padding:0;">↺</button>
                 </div>`;
         }
 
-        // Checklist Progress Bar (only if checklist exists)
+        // Checklist Progress Bar
         let checklistProgressHtml = '';
         try {
             const checklist = task.checklist ? JSON.parse(task.checklist) : [];
             if (checklist.length > 0) {
                 const progress = calculateChecklistProgress(checklist);
                 checklistProgressHtml = `
-                    <div class="progress-bar-container" title="${progress.text} Completed" style="height:12px; margin-bottom:8px;">
-                        <div class="progress-bar-fill" style="width: ${progress.percent}%;"></div>
-                        <span class="progress-bar-text" style="font-size:8px;">${progress.percent}%</span>
+                    <div class="progress-bar-container" title="${progress.text} Completed" style="height:4px; background:#333; margin: 8px 0; border-radius:2px;">
+                        <div class="progress-bar-fill" style="width: ${progress.percent}%; background: var(--accent-cyan); height:100%;"></div>
                     </div>`;
             }
-        } catch (e) { /* malformed checklist JSON, ignore */ }
+        } catch (e) { }
         
-        // 4. --- ASSEMBLE THE FINAL CARD HTML ---
+        // 4. Assemble HTML
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="font-weight:bold; font-size:14px; margin-bottom:5px;">${task.title}</div>
+                <div style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${task.title}</div>
                 <div style="font-size:12px; white-space:nowrap;">
-                    <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.6;">✏️</button>
-                    <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:red; opacity:0.6;">🗑️</button>
+                    <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.5; color:white;">✏️</button>
+                    <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:var(--primary-red); opacity:0.8;">&times;</button>
                 </div>
             </div>
             
@@ -958,16 +983,15 @@ function renderTasks(tasks) {
 
             ${checklistProgressHtml}
 
-            <div style="background:#f9f9f9; padding:5px; border-radius:4px; margin-bottom:10px; border:1px solid #eee;">
+            <div style="margin-bottom:10px;">
                 ${timerControls}
             </div>
 
-            <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #eee;">
+            <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #333;">
                 ${controls}
             </div>
         `;
 
-        // 5. Append to the correct column
         if (task.status === 'todo') document.getElementById('task-list-todo').appendChild(card);
         else if (task.status === 'inprogress') document.getElementById('task-list-progress').appendChild(card);
         else document.getElementById('task-list-done').appendChild(card);
@@ -1014,16 +1038,28 @@ function renderCalendarPreview(tasks) {
     const container = document.getElementById('simple-calendar');
     container.innerHTML = '';
     const datedTasks = tasks.filter(t => t.due_date).sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
+    
     if(datedTasks.length === 0) {
-        container.innerHTML = '<div style="color:#888; padding:20px; text-align:center;">No tasks scheduled.</div>';
+        container.innerHTML = '<div style="color:#666; padding:20px; text-align:center; font-style:italic;">No missions scheduled.</div>';
         return;
     }
+    
     datedTasks.forEach(t => {
         const item = document.createElement('div');
-        item.style.padding = '8px';
-        item.style.borderBottom = '1px solid #eee';
-        const isDone = t.status === 'done' ? 'text-decoration:line-through; color:#aaa;' : '';
-        item.innerHTML = `<div style="font-weight:bold; ${isDone}">${t.due_date}</div><div style="${isDone}">${t.title}</div>`;
+        item.style.padding = '10px';
+        item.style.borderBottom = '1px solid #333';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        
+        const isDone = t.status === 'done';
+        const color = isDone ? '#444' : 'white';
+        const dateColor = isDone ? '#444' : 'var(--accent-cyan)';
+        const textDec = isDone ? 'line-through' : 'none';
+
+        item.innerHTML = `
+            <div style="color:${dateColor}; font-weight:bold; font-size:12px;">${t.due_date}</div>
+            <div style="color:${color}; text-decoration:${textDec}; font-size:13px; text-align:right;">${t.title}</div>
+        `;
         container.appendChild(item);
     });
 }
@@ -1052,15 +1088,11 @@ function renderNotesList() {
     const list = document.getElementById('notes-list-ul');
     list.innerHTML = '';
     
-    // Filter
+    // Filter Logic
     let displayNotes = allNotesCache;
-    
-    // 1. By Folder
     if (currentNoteFolder !== null) {
         displayNotes = displayNotes.filter(n => n.folder_id === currentNoteFolder);
     }
-    
-    // 2. By Search
     if (currentNoteSearch) {
         displayNotes = displayNotes.filter(n => 
             (n.title && n.title.toLowerCase().includes(currentNoteSearch)) || 
@@ -1069,20 +1101,35 @@ function renderNotesList() {
     }
 
     if (displayNotes.length === 0) {
-        list.innerHTML = '<li style="padding:15px; color:#999; text-align:center;">No notes found.</li>';
+        list.innerHTML = '<li style="padding:15px; color:#666; text-align:center; font-style:italic;">No data fragments found.</li>';
         return;
     }
 
     displayNotes.forEach(note => {
         const li = document.createElement('li');
-        li.style.padding = '12px';
-        li.style.borderBottom = '1px solid #f0f0f0';
+        li.style.padding = '15px';
+        li.style.borderBottom = '1px solid #333';
         li.style.cursor = 'pointer';
-        li.style.background = (activeNoteId === note.id) ? '#e6f7ff' : 'white';
+        li.style.transition = '0.2s';
+        
+        // Active vs Inactive Styling
+        if (activeNoteId === note.id) {
+            li.style.background = 'rgba(5, 217, 232, 0.1)'; // Cyan Tint
+            li.style.borderLeft = '4px solid var(--accent-cyan)';
+            li.style.color = 'white';
+        } else {
+            li.style.background = 'transparent';
+            li.style.borderLeft = '4px solid transparent';
+            li.style.color = '#ccc';
+        }
+        
+        // Hover Effect via JS (since we are doing inline styles for active state)
+        li.onmouseover = () => { if(activeNoteId !== note.id) li.style.background = '#222'; };
+        li.onmouseout = () => { if(activeNoteId !== note.id) li.style.background = 'transparent'; };
         
         li.innerHTML = `
-            <div style="font-weight:600; font-size:14px; color:#333;">${note.title || 'Untitled'}</div>
-            <div style="font-size:11px; color:#888; margin-top:4px;">
+            <div style="font-weight:600; font-size:14px;">${note.title || 'Untitled'}</div>
+            <div style="font-size:11px; color:#666; margin-top:4px;">
                 ${new Date(note.created_at).toLocaleDateString()}
             </div>
         `;
@@ -1184,20 +1231,14 @@ function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(sav
    ================================================================= */
 
 async function loadDashboard() {
-    // Fetch Data
     const [resTasks, resBms] = await Promise.all([fetch(`${API_BASE}/tasks`), fetch(`${API_BASE}/bookmarks`)]);
     const tasks = await resTasks.json();
     const bookmarks = await resBms.json();
 
-    // Update Text Stats
-    document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length} Pending`;
-    document.getElementById('dash-bm-count').innerText = `${bookmarks.length} Total`;
+    document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length}`;
+    document.getElementById('dash-bm-count').innerText = `${bookmarks.length}`;
 
-    // RENDER CALENDAR
     renderDashboardCalendar(tasks);
-
-    // (You can remove the old "Today's Agenda" code below this if you want, 
-    // since the calendar now shows today's tasks visually)
 }
 
 let searchDebounce;
@@ -1219,19 +1260,42 @@ function performSearch(query) {
 
 function renderSearchResults(results, query) {
     const container = document.getElementById('search-results-container');
-    container.innerHTML = `<p>Found ${results.length} results for "<strong>${query}</strong>"</p>`;
+    container.innerHTML = `<p style="color: #aaa; margin-bottom: 20px;">Found ${results.length} fragments matching "<strong>${query}</strong>"</p>`;
+    
     if (results.length === 0) return;
+    
     const list = document.createElement('div');
-    list.style.display = 'flex'; list.style.flexDirection = 'column'; list.style.gap = '10px';
+    list.style.display = 'flex'; 
+    list.style.flexDirection = 'column'; 
+    list.style.gap = '15px';
+    
     results.forEach(item => {
         const div = document.createElement('div');
-        div.style.background = '#fff';
-        div.style.padding = '15px';
-        div.style.borderRadius = '5px';
-        div.style.borderLeft = `5px solid ${getTypeColor(item.type)}`;
+        div.style.background = '#1a1a1a';
+        div.style.padding = '20px';
+        div.style.borderRadius = '8px';
+        div.style.border = '1px solid #333';
         div.style.cursor = 'pointer';
-        let icon = {'bookmark': '🔖', 'task': '✅', 'note': '📝'}[item.type] || '❓';
-        div.innerHTML = `<div style="font-weight:bold; font-size:16px;">${icon} ${item.title}</div><div style="color:#666; font-size:12px; margin-top:2px;">Type: ${item.type.toUpperCase()} | Info: ${item.info || ''}</div>`;
+        div.style.transition = '0.2s';
+        
+        // Dynamic Border Color based on Type
+        let typeColor = '#ccc';
+        let icon = '❓';
+        if(item.type === 'bookmark') { typeColor = 'var(--accent-cyan)'; icon = '🔖'; }
+        if(item.type === 'task') { typeColor = 'var(--primary-red)'; icon = '✅'; }
+        if(item.type === 'note') { typeColor = '#ffc107'; icon = '📝'; }
+        
+        div.style.borderLeft = `5px solid ${typeColor}`;
+
+        div.onmouseover = () => { div.style.transform = 'translateX(5px)'; div.style.background = '#222'; };
+        div.onmouseout = () => { div.style.transform = 'translateX(0)'; div.style.background = '#1a1a1a'; };
+
+        div.innerHTML = `
+            <div style="font-weight:bold; font-size:18px; color: white;">${icon} ${item.title}</div>
+            <div style="color:#888; font-size:12px; margin-top:5px; text-transform: uppercase; letter-spacing: 1px;">
+                Type: <span style="color:${typeColor}">${item.type}</span> | ${item.info || ''}
+            </div>`;
+            
         div.onclick = () => {
             if(item.type === 'bookmark') switchTab('bookmarks'); 
             if(item.type === 'task') switchTab('tasks');
