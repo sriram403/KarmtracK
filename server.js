@@ -204,9 +204,6 @@ app.put('/api/notes/:id', (req, res) => {
     });
 });
 
-/* ================= IMPROVED ENRICHMENT LOGIC ================= */
-const ogs = require('open-graph-scraper');
-
 /* ================= UPDATED ENRICHMENT LOGIC (NO X SCRAPING) ================= */
 const ogs = require('open-graph-scraper');
 

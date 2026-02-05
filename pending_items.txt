@@ -1,3 +1,1 @@
 1. bugs on bookmark sections, no list view, and the title added manually is not showing the card view as well, and edit button only works for tags, can we also add that for title as well
-2. the task section when i press the delete icon, it's not deleting the tasks
-3. research section where i press the delete, it's not deleting the notes, it's deleting the current instance of the note, but on the side bar we can still access the notes
