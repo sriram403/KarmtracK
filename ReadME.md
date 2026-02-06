@@ -1,4 +1,4 @@
-# KarmtracK  karmtrack
+# KarmtracK
 
 ### Your Brain's Slightly-Less-Chaotic Filing Cabinet.
 
