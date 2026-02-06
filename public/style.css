@@ -546,3 +546,34 @@ button {
 }
 .btn-primary { background: var(--primary-red); color: white; }
 .btn-secondary { background: #333; color: #aaa; }
+
+/* --- Dashboard Action Buttons --- */
+.dashboard-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.dashboard-actions button {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    background: #2a2a2a;
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.dashboard-actions button:hover {
+    background: var(--accent-cyan);
+    color: var(--bg-black);
+    box-shadow: var(--shadow-cyan);
+}
