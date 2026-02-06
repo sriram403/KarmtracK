@@ -529,139 +529,220 @@ app.delete('/api/folders/:id', (req, res) => {
 
 /* ================= CSV EXPORT/IMPORT ROUTES ================= */
 
-// 1. EXPORT BOOKMARKS TO CSV
-app.get('/api/export/bookmarks', (req, res) => {
-    const sql = `
-        SELECT b.url, b.title, b.description, f.name as folder_name, GROUP_CONCAT(t.name) as tags
-        FROM bookmarks b
-        LEFT JOIN folders f ON b.folder_id = f.id
-        LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
-        LEFT JOIN tags t ON it.tag_id = t.id
-        GROUP BY b.id
-        ORDER BY b.created_at DESC
-    `;
-
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        // Header Row
-        let csvContent = "URL,Title,Description,Tags,Folder\n";
-
-        // Data Rows
-        rows.forEach(row => {
-            // Helper to escape quotes and wrap in quotes
-            const escape = (txt) => {
-                if (!txt) return "";
-                return `"${txt.toString().replace(/"/g, '""')}"`; // CSV standard escaping
-            };
-
-            const line = [
-                escape(row.url),
-                escape(row.title),
-                escape(row.description),
-                escape(row.tags), // Tags will come out like "tag1,tag2" inside the quotes
-                escape(row.folder_name)
-            ].join(",");
-
-            csvContent += line + "\n";
-        });
-
-        res.header('Content-Type', 'text/csv');
-        res.attachment('karmtrack_bookmarks.csv');
-        res.send(csvContent);
-    });
-});
-
-// 2. IMPORT BOOKMARKS FROM CSV (Robust Version)
-app.post('/api/import/bookmarks', (req, res) => {
-    const { csvData } = req.body;
-    if (!csvData) return res.status(400).json({ error: "No CSV data provided" });
-
-    // Helper: Parse CSV Line
-    const parseCSVLine = (text) => {
-        const result = [];
-        let cur = '';
-        let inQuote = false;
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            if (char === '"') { inQuote = !inQuote; }
-            else if (char === ',' && !inQuote) { result.push(cur); cur = ''; }
-            else { cur += char; }
-        }
-        result.push(cur);
-        return result.map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+app.get('/api/export/database', (req, res) => {
+    const exportData = {
+        version: 1,
+        timestamp: new Date().toISOString(),
+        folders: [],
+        tags: [],
+        bookmarks: [],
+        tasks: [],
+        notes: []
     };
 
-    const lines = csvData.split(/\r?\n/);
-    const parsedRows = [];
-    const uniqueFolders = new Set();
+    const getFolders = new Promise((resolve, reject) => {
+        db.all("SELECT name FROM folders", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows.map(r => r.name));
+        });
+    });
 
-    // 1. First Pass: Parse data and collect unique Folder names
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        
-        const cols = parseCSVLine(lines[i]);
-        const url = cols[0];
-        if (!url) continue;
+    const getTags = new Promise((resolve, reject) => {
+        db.all("SELECT name FROM tags", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows.map(r => r.name));
+        });
+    });
 
-        const row = {
-            url: url,
-            title: cols[1] || url,
-            desc: cols[2] || "",
-            tags: cols[3] || "",
-            folderName: cols[4] || ""
-        };
+    const getBookmarks = new Promise((resolve, reject) => {
+        const sql = `
+            SELECT b.url, b.title, b.description, b.thumbnail, b.created_at, f.name as folder_name, GROUP_CONCAT(t.name) as tag_list
+            FROM bookmarks b
+            LEFT JOIN folders f ON b.folder_id = f.id
+            LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
+            LEFT JOIN tags t ON it.tag_id = t.id
+            GROUP BY b.id
+        `;
+        db.all(sql, [], (err, rows) => {
+            if (err) reject(err);
+            else {
+                resolve(rows.map(r => ({
+                    url: r.url,
+                    title: r.title,
+                    description: r.description,
+                    thumbnail: r.thumbnail,
+                    created_at: r.created_at,
+                    folder: r.folder_name,
+                    tags: r.tag_list ? r.tag_list.split(',') : []
+                })));
+            }
+        });
+    });
 
-        parsedRows.push(row);
-        if (row.folderName) uniqueFolders.add(row.folderName);
+    const getNotes = new Promise((resolve, reject) => {
+        const sql = `
+            SELECT n.title, n.content, n.created_at, f.name as folder_name
+            FROM notes n
+            LEFT JOIN folders f ON n.folder_id = f.id
+        `;
+        db.all(sql, [], (err, rows) => {
+            if (err) reject(err);
+            else {
+                resolve(rows.map(r => ({
+                    title: r.title,
+                    content: r.content,
+                    created_at: r.created_at,
+                    folder: r.folder_name
+                })));
+            }
+        });
+    });
+
+    const getTasks = new Promise((resolve, reject) => {
+        db.all("SELECT * FROM tasks", [], (err, tasks) => {
+            if (err) return reject(err);
+            
+            if (tasks.length === 0) return resolve([]);
+
+            const taskPromises = tasks.map(task => {
+                return new Promise((resSession, rejSession) => {
+                    db.all("SELECT start_time, end_time FROM task_sessions WHERE task_id = ?", [task.id], (err, sessions) => {
+                        if (err) rejSession(err);
+                        else {
+                            resSession({
+                                title: task.title,
+                                status: task.status,
+                                due_date: task.due_date,
+                                checklist: task.checklist,
+                                notes: task.notes,
+                                created_at: task.created_at,
+                                sessions: sessions
+                            });
+                        }
+                    });
+                });
+            });
+
+            Promise.all(taskPromises).then(resolve).catch(reject);
+        });
+    });
+
+    Promise.all([getFolders, getTags, getBookmarks, getNotes, getTasks])
+        .then(([folders, tags, bookmarks, notes, tasks]) => {
+            exportData.folders = folders;
+            exportData.tags = tags;
+            exportData.bookmarks = bookmarks;
+            exportData.notes = notes;
+            exportData.tasks = tasks;
+
+            res.header('Content-Type', 'application/json');
+            res.attachment(`karmtrack_backup_${new Date().toISOString().slice(0, 10)}.json`);
+            res.send(JSON.stringify(exportData, null, 2));
+        })
+        .catch(err => {
+            res.status(500).json({ error: err.message });
+        });
+});
+
+app.post('/api/import/database', (req, res) => {
+    const data = req.body;
+    
+    if (!data || !data.bookmarks || !data.tasks || !data.notes) {
+        return res.status(400).json({ error: "Invalid backup data format." });
     }
 
     db.serialize(() => {
-        // 2. Insert all Folders first (safely ignoring duplicates)
+        db.run("BEGIN TRANSACTION");
+
+        // 1. Restore Folders
         const folderStmt = db.prepare("INSERT OR IGNORE INTO folders (name) VALUES (?)");
-        uniqueFolders.forEach(name => folderStmt.run(name));
+        (data.folders || []).forEach(name => folderStmt.run(name));
         folderStmt.finalize();
 
-        // 3. Fetch all Folder IDs (Map Name -> ID)
-        db.all("SELECT id, name FROM folders", (err, dbFolders) => {
-            const folderMap = {};
-            if (dbFolders) {
-                dbFolders.forEach(f => folderMap[f.name] = f.id);
-            }
+        // 2. Restore Tags
+        const tagStmt = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
+        (data.tags || []).forEach(name => tagStmt.run(name));
+        tagStmt.finalize();
 
-            // 4. Insert Bookmarks
-            const tagInsertStmt = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
+        // 3. Re-fetch IDs for mapping
+        const folderMap = {};
+        const tagMap = {};
 
-            parsedRows.forEach(row => {
-                const folderId = folderMap[row.folderName] || null;
+        // We use a Promise wrapper here just to synchronize the ID fetching within the flow
+        new Promise((resolve, reject) => {
+            db.all("SELECT id, name FROM folders", (err, rows) => {
+                if(err) return reject(err);
+                rows.forEach(r => folderMap[r.name] = r.id);
+                
+                db.all("SELECT id, name FROM tags", (err, tRows) => {
+                    if(err) return reject(err);
+                    tRows.forEach(r => tagMap[r.name] = r.id);
+                    resolve();
+                });
+            });
+        }).then(() => {
+            
+            // 4. Restore Bookmarks
+            const bmStmt = db.prepare(`INSERT INTO bookmarks (url, title, description, thumbnail, created_at, folder_id) VALUES (?, ?, ?, ?, ?, ?)`);
+            const itemTagStmt = db.prepare(`INSERT OR IGNORE INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', ?)`);
 
-                db.run("INSERT INTO bookmarks (url, title, description, folder_id) VALUES (?, ?, ?, ?)", 
-                    [row.url, row.title, row.desc, folderId], 
-                    function(err) {
-                        if (!err) {
-                            const bmId = this.lastID;
-                            // 5. Handle Tags
-                            if (row.tags) {
-                                const tags = row.tags.split(',').map(t => t.trim());
-                                tags.forEach(tag => {
-                                    if (tag) {
-                                        tagInsertStmt.run(tag);
-                                        db.run("INSERT INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', (SELECT id FROM tags WHERE name = ?))", [bmId, tag]);
-                                    }
-                                });
-                            }
-                        }
+            (data.bookmarks || []).forEach(bm => {
+                const fId = bm.folder ? folderMap[bm.folder] : null;
+                bmStmt.run([bm.url, bm.title, bm.description, bm.thumbnail, bm.created_at, fId], function(err) {
+                    if(!err && bm.tags && bm.tags.length > 0) {
+                        const bmId = this.lastID;
+                        bm.tags.forEach(tagName => {
+                            if(tagMap[tagName]) itemTagStmt.run(bmId, tagMap[tagName]);
+                        });
                     }
-                );
+                });
+            });
+            bmStmt.finalize();
+            // Note: itemTagStmt finalized later or allowed to garbage collect in this scope
+
+            // 5. Restore Notes
+            const noteStmt = db.prepare(`INSERT INTO notes (title, content, created_at, folder_id) VALUES (?, ?, ?, ?)`);
+            (data.notes || []).forEach(note => {
+                const fId = note.folder ? folderMap[note.folder] : null;
+                noteStmt.run([note.title, note.content, note.created_at, fId]);
+            });
+            noteStmt.finalize();
+
+            // 6. Restore Tasks & Sessions
+            // We have to nest this slightly to capture lastID for sessions
+            const taskStmt = db.prepare(`INSERT INTO tasks (title, status, due_date, checklist, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)`);
+            const sessionStmt = db.prepare(`INSERT INTO task_sessions (task_id, start_time, end_time) VALUES (?, ?, ?)`);
+
+            (data.tasks || []).forEach(task => {
+                taskStmt.run([task.title, task.status, task.due_date, task.checklist, task.notes, task.created_at], function(err) {
+                    if(!err && task.sessions && task.sessions.length > 0) {
+                        const taskId = this.lastID;
+                        task.sessions.forEach(sess => {
+                            sessionStmt.run(taskId, sess.start_time, sess.end_time);
+                        });
+                    }
+                });
             });
             
-            // Note: We finalize inside the loop logic in a real app, 
-            // but for this simple sync flow, we let garbage collection handle statement cleanup or finalize specifically if needed.
+            // Finalize statements
+            setTimeout(() => {
+                itemTagStmt.finalize();
+                taskStmt.finalize();
+                sessionStmt.finalize();
+                
+                db.run("COMMIT", (err) => {
+                    if (err) res.status(500).json({ error: "Import Failed during commit." });
+                    else res.json({ message: "Full database import complete." });
+                });
+            }, 1000); // Small delay to ensure async runs inside serialize finish
+
+        }).catch(err => {
+            db.run("ROLLBACK");
+            res.status(500).json({ error: err.message });
         });
     });
-
-    res.json({ message: "Import process started." });
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

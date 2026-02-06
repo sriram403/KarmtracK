@@ -495,6 +495,66 @@ async function editBookmark(bm) {
     openEditModal(bm);
 }
 
+function exportDatabase() {
+    fetch('/api/export/database')
+        .then(res => {
+            if (!res.ok) throw new Error("Network response was not ok");
+            return res.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `karmtrack_full_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(err => console.error("Export failed:", err));
+}
+
+function importDatabase(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const jsonData = JSON.parse(e.target.result);
+            
+            // Basic validation check
+            if (!jsonData.bookmarks && !jsonData.tasks && !jsonData.notes) {
+                alert("Error: File does not appear to be a valid KarmtracK backup.");
+                return;
+            }
+
+            if(confirm("This will merge the backup data into your current database. Continue?")) {
+                fetch('/api/import/database', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(jsonData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message || "Import successful!");
+                    // Reload to reflect all new data (folders, tags, tasks, etc)
+                    window.location.reload(); 
+                })
+                .catch(err => alert("Import Error: " + err.message));
+            }
+
+        } catch (err) {
+            alert("Error parsing JSON file: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset input to allow re-importing same file if needed
+    input.value = ''; 
+}
+
 // Esc key to close modals
 document.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {

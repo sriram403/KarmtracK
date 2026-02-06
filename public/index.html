@@ -168,10 +168,11 @@
                         <h1 style="margin: 0; font-size: 2rem; color: var(--accent-cyan); letter-spacing: 2px;">THE ARCHIVES</h1>
                         <div class="view-toggles" style="display:flex; gap: 10px; align-items:center;">
                             <!-- Data Controls -->
-                            <button onclick="exportBookmarks()" title="Export CSV" style="background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); border-radius: 4px; padding: 10px;"><span class="material-icons">download</span></button>
-                            <button onclick="document.getElementById('import-file').click()" title="Import CSV" style="background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); border-radius: 4px; padding: 10px;"><span class="material-icons">upload</span></button>
+                            <!-- Data Controls -->
+                            <button onclick="exportDatabase()" title="Export Full Backup (JSON)" style="background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); border-radius: 4px; padding: 10px;"><span class="material-icons">download</span></button>
+                            <button onclick="document.getElementById('import-file').click()" title="Import Full Backup (JSON)" style="background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); border-radius: 4px; padding: 10px;"><span class="material-icons">upload</span></button>
                             <!-- Hidden Input for Import -->
-                            <input type="file" id="import-file" accept=".csv" style="display:none;" onchange="importBookmarks(this)">
+                            <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importDatabase(this)">
 
                             <!-- Divider -->
                             <div style="width:1px; height:30px; background:#444; margin: 0 5px;"></div>

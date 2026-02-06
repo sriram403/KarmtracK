@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "timestamp": "2026-02-06T06:23:34.315Z",
+  "folders": [
+    "new folder",
+    "another folder"
+  ],
+  "tags": [
+    "asdf",
+    "sdfsd"
+  ],
+  "bookmarks": [
+    {
+      "url": "https://x.com/Mericamemed/status/2019297436691493282?s=20",
+      "title": "asdf",
+      "description": "sdfsd",
+      "thumbnail": "",
+      "created_at": "2026-02-06 06:21:50",
+      "folder": null,
+      "tags": [
+        "asdf"
+      ]
+    },
+    {
+      "url": "https://x.com/Kachidey4you/status/2019457571266994208?s=20",
+      "title": "sdfsd",
+      "description": "sdfsdf",
+      "thumbnail": "",
+      "created_at": "2026-02-06 06:22:09",
+      "folder": "new folder",
+      "tags": [
+        "sdfsd"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "title": "works",
+      "status": "inprogress",
+      "due_date": "2026-02-06",
+      "checklist": "[{\"text\":\"Livesitter\",\"done\":false},{\"text\":\"Jags\",\"done\":false}]",
+      "notes": "Livesitter<div>1. verify alert managers data for accuracy</div><div>2. email SLB regarding delayed alerts</div><div>3. Delete old data from cvat</div><div><br></div><div>Jags</div><div>1. create hallucination identified functions</div><div>2. update Abi regarding the results</div><div>3. Check outlook</div><div><div><br></div></div>",
+      "created_at": "2026-02-06 06:01:14",
+      "sessions": []
+    },
+    {
+      "title": "Gameplay",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:01:29",
+      "sessions": []
+    },
+    {
+      "title": "knowledge",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:02:07",
+      "sessions": []
+    },
+    {
+      "title": "Youtube",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:02:16",
+      "sessions": []
+    },
+    {
+      "title": "Sadhguru Exclusive",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:03:30",
+      "sessions": []
+    },
+    {
+      "title": "Music",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:03:39",
+      "sessions": []
+    },
+    {
+      "title": "GameDev",
+      "status": "todo",
+      "due_date": "2026-02-06",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:03:53",
+      "sessions": []
+    }
+  ],
+  "notes": [
+    {
+      "title": "Untitled Note",
+      "content": "",
+      "created_at": "2026-02-06 06:22:43",
+      "folder": "new folder"
+    },
+    {
+      "title": "Untitled Note",
+      "content": "",
+      "created_at": "2026-02-06 06:23:20",
+      "folder": "another folder"
+    }
+  ]
+}
