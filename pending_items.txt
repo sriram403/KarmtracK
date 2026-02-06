@@ -1,1 +1,0 @@
-6. give option to extract the db into csv values with all the data as well as give option to import csv and store it in db
