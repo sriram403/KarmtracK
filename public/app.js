@@ -999,9 +999,9 @@ function createBookmarkElement(bm) {
                 <a href="${bm.url}" target="_blank" style="text-decoration:none;">${bm.title}</a>
             </h4>
             ${descHtml}
-            <div style="margin-top:15px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1; display:flex; flex-wrap:wrap; gap:2px;">${tagsHtml}</div>
-                <div style="white-space:nowrap; margin-left:10px;">${buttonsHtml}</div>
+            <div class="bm-meta-row">
+                <div class="bm-tags-wrap">${tagsHtml}</div>
+                <div class="bm-actions">${buttonsHtml}</div>
             </div>`;
 
     } else {
@@ -1013,8 +1013,8 @@ function createBookmarkElement(bm) {
         
         div.innerHTML = `
             <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                <a href="${bm.url}" target="_blank" style="text-decoration:none; font-weight:bold; font-size: 1.1rem; color: white;">${bm.title}</a>
-                <div style="font-size:12px; color:#666; margin-top:2px;">${bm.url}</div>
+                <a href="${bm.url}" target="_blank" class="bm-title-link" style="text-decoration:none; font-weight:bold; font-size: 1.1rem; color: white;">${bm.title}</a>
+                <div class="bm-url-line" style="font-size:12px; color:#666; margin-top:2px;" title="${bm.url}">${bm.url}</div>
                 ${descHtml}
                 <div style="margin-top:8px;">${tagsHtml}</div>
             </div>
@@ -1409,9 +1409,9 @@ function renderTasks(tasks) {
         const safeTitle = JSON.stringify(task.title || '');
 
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${task.title}</div>
-                <div style="font-size:12px; white-space:nowrap;">
+            <div class="task-head">
+                <div class="task-title" style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${task.title}</div>
+                <div class="task-actions" style="font-size:12px; white-space:nowrap;">
                     <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, ${safeTitle})' style="border:none;background:none;cursor:pointer; opacity:0.5; color:white;">&#9998;</button>
                     <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:var(--primary-red); opacity:0.8;">&times;</button>
                 </div>
@@ -1423,7 +1423,7 @@ function renderTasks(tasks) {
 
             ${timerControls ? `<div style="margin-bottom:10px;">${timerControls}</div>` : ''}
 
-            <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #333;">
+            <div class="task-controls" style="margin-top:5px; padding-top:5px; border-top:1px dashed #333;">
                 ${controls}
             </div>
         `;
@@ -1838,4 +1838,5 @@ async function saveBookmarkChanges() {
         alert("Update failed. Check console for details.");
     }
 }
+
 
