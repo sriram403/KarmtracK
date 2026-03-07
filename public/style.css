@@ -210,6 +210,61 @@ button {
 .bm-item a { color: var(--text-white); transition: 0.2s; }
 .bm-item a:hover { color: var(--accent-cyan); text-shadow: 0 0 5px var(--accent-cyan); }
 
+.x-compact-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: #111;
+    text-decoration: none;
+}
+
+.x-compact-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #000;
+    border: 1px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    flex: 0 0 28px;
+}
+
+.x-compact-meta {
+    min-width: 0;
+    flex: 1;
+}
+
+.x-compact-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.x-compact-url {
+    font-size: 12px;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.x-compact-open {
+    font-size: 11px;
+    color: var(--accent-cyan);
+    border: 1px solid rgba(5, 217, 232, 0.4);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
 /* --- Kanban --- */
 .kanban-board { flex: 2; display: flex; gap: 15px; }
 .column {
@@ -229,6 +284,17 @@ button {
 .task-card:hover {
     transform: translateX(5px);
     box-shadow: var(--shadow-red);
+}
+
+.task-card.dragging {
+    opacity: 0.55;
+    transform: scale(0.98);
+}
+
+.task-container.drag-over {
+    background: rgba(5, 217, 232, 0.08);
+    outline: 1px dashed rgba(5, 217, 232, 0.65);
+    border-radius: 8px;
 }
 
 /* --- Research Notes --- */
@@ -577,3 +643,4 @@ button {
     color: var(--bg-black);
     box-shadow: var(--shadow-cyan);
 }
+

@@ -1,5 +1,6 @@
 const API_BASE = 'http://localhost:3000/api';
 let currentBmView = 'grid'; // Default to grid
+let xPreviewMode = 'compact'; // compact | full
 let currentFolderFilter = null; // null = View All, integer = specific folder ID
 let allBookmarksCache = []; // Stores raw data from API
 let currentSearchTerm = ''; // Stores local search text
@@ -10,6 +11,19 @@ let dashboardDate = new Date(); // Tracks the month currently being viewed
 let activeTaskData = null; // Holds the full data for the task in the modal
 let taskChecklist = []; // Holds the checklist items for the active task
 let activeEditBookmarkId = null; // Stores the ID of the bookmark being edited
+const TIMER_NOTIFY_KEY = 'taskTimerNotifySettings';
+let taskTimerNotifySettings = {};
+let taskStatusMap = {};
+let draggedTaskId = null;
+let runningTimerNotificationState = {};
+let taskNotificationAudioContext = null;
+let taskNotificationAudioUnlocked = false;
+
+try {
+    taskTimerNotifySettings = JSON.parse(localStorage.getItem(TIMER_NOTIFY_KEY) || '{}');
+} catch (err) {
+    taskTimerNotifySettings = {};
+}
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
@@ -34,7 +48,7 @@ function setViewFolder(id, name) {
         // Add "Back to All" button with improved styling
         const btn = document.createElement('button');
         btn.id = 'back-to-all-btn';
-        btn.innerHTML = '← View All';
+        btn.innerHTML = '<- View All';
         btn.style.fontSize = '12px'; 
         btn.style.padding = '5px 10px';
         btn.style.cursor = 'pointer';
@@ -279,6 +293,8 @@ function renderDashboardCalendar(tasks) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    xPreviewMode = localStorage.getItem('xPreviewMode') === 'full' ? 'full' : 'compact';
+    updateXPreviewModeButtons();
     // Initial data load for the dashboard view
     switchTab('dashboard');
     
@@ -292,17 +308,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // GLOBAL CLOCK TICKER (Updates UI every second)
     setInterval(() => {
         const activeTimers = document.querySelectorAll('.task-timer-display[data-active-start]');
+        const activeIds = new Set();
+
         activeTimers.forEach(el => {
             const startStr = el.getAttribute('data-active-start');
             const pastSeconds = parseInt(el.getAttribute('data-past-duration')) || 0;
-            
+            const taskId = parseInt(el.getAttribute('data-task-id'));
+            const taskTitle = el.getAttribute('data-task-title') || 'Task';
+
             // Calculate distinct UTC offset adjustment to handle local browser time vs UTC DB time
             const startDate = new Date(startStr + "Z"); // Append Z to treat DB time as UTC
             const now = new Date();
             const elapsedSinceStart = Math.floor((now - startDate) / 1000);
-            
+
             const totalSeconds = pastSeconds + elapsedSinceStart;
             el.innerText = formatTime(totalSeconds);
+
+            if (!Number.isNaN(taskId)) {
+                activeIds.add(taskId);
+                maybeSendTaskRunningNotification(taskId, taskTitle, elapsedSinceStart);
+            }
+        });
+
+        Object.keys(runningTimerNotificationState).forEach((id) => {
+            if (!activeIds.has(parseInt(id))) {
+                delete runningTimerNotificationState[id];
+            }
         });
     }, 1000);
 
@@ -321,22 +352,265 @@ function formatTime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-async function startTimer(taskId) {
-    await fetch(`${API_BASE}/tasks/${taskId}/timer/start`, { method: 'POST' });
+function persistTaskTimerNotifySettings() {
+    localStorage.setItem(TIMER_NOTIFY_KEY, JSON.stringify(taskTimerNotifySettings));
+}
+
+function getTaskNotifySetting(taskId) {
+    const raw = taskTimerNotifySettings[String(taskId)] || {};
+    const intervalMinutes = Number(raw.intervalMinutes) > 0 ? Number(raw.intervalMinutes) : 10;
+    const customValue = Number(raw.customValue) > 0 ? Number(raw.customValue) : 10;
+    const customUnit = raw.customUnit === 'hours' ? 'hours' : 'minutes';
+
+    return {
+        enabled: !!raw.enabled,
+        intervalMinutes,
+        isCustom: !!raw.isCustom,
+        customValue,
+        customUnit
+    };
+}
+
+function setTaskNotifySetting(taskId, setting) {
+    taskTimerNotifySettings[String(taskId)] = setting;
+    delete runningTimerNotificationState[String(taskId)];
+    persistTaskTimerNotifySettings();
+}
+
+function getTaskNotifyOptionValue(taskId) {
+    const setting = getTaskNotifySetting(taskId);
+    if (!setting.enabled) return 'off';
+    if (setting.isCustom) return 'custom';
+    if ([10, 20, 30, 60].includes(setting.intervalMinutes)) return `${setting.intervalMinutes}m`;
+    return 'custom';
+}
+
+function getTaskNotifyLabel(taskId) {
+    const setting = getTaskNotifySetting(taskId);
+    if (!setting.enabled) return 'Off';
+    if (setting.isCustom) return `Every ${setting.customValue} ${setting.customUnit === 'hours' ? 'hr' : 'min'}`;
+    return `Every ${setting.intervalMinutes} min`;
+}
+
+function formatDurationShort(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+}
+
+function unlockTaskNotificationSound() {
+    try {
+        if (!window.AudioContext && !window.webkitAudioContext) return false;
+
+        if (!taskNotificationAudioContext) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            taskNotificationAudioContext = new AudioCtx();
+        }
+
+        if (taskNotificationAudioContext.state === 'suspended') {
+            taskNotificationAudioContext.resume();
+        }
+
+        taskNotificationAudioUnlocked = true;
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+function playTaskNotificationSound() {
+    try {
+        const unlocked = unlockTaskNotificationSound();
+        if (!unlocked || !taskNotificationAudioContext) return;
+
+        const ctx = taskNotificationAudioContext;
+        const now = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(660, now + 0.22);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.25);
+    } catch (err) {
+        // Ignore sound playback errors silently.
+    }
+}
+async function ensureNotificationPermission() {
+    unlockTaskNotificationSound();
+
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') return false;
+
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+}
+
+async function handleTaskNotifyOptionChange(taskId, optionValue) {
+    if (optionValue === 'off') {
+        setTaskNotifySetting(taskId, { enabled: false, intervalMinutes: 10, isCustom: false, customValue: 10, customUnit: 'minutes' });
+        loadTasks();
+        return;
+    }
+
+    if (optionValue === 'custom') {
+        const current = getTaskNotifySetting(taskId);
+        const suggestedValue = current.isCustom ? String(current.customValue) : '45';
+        const suggestedUnit = current.isCustom ? current.customUnit : 'minutes';
+
+        const valueInput = prompt('Custom notification interval value:', suggestedValue);
+        if (!valueInput) {
+            loadTasks();
+            return;
+        }
+
+        const customValue = Number(valueInput);
+        if (!Number.isFinite(customValue) || customValue <= 0) {
+            alert('Please enter a valid positive number.');
+            loadTasks();
+            return;
+        }
+
+        const unitInput = (prompt('Type unit: minutes or hours', suggestedUnit) || '').trim().toLowerCase();
+        const customUnit = unitInput.startsWith('h') ? 'hours' : 'minutes';
+        const intervalMinutes = customUnit === 'hours' ? customValue * 60 : customValue;
+
+        setTaskNotifySetting(taskId, {
+            enabled: true,
+            intervalMinutes,
+            isCustom: true,
+            customValue,
+            customUnit
+        });
+
+        unlockTaskNotificationSound();
+        await ensureNotificationPermission();
+        loadTasks();
+        return;
+    }
+
+    const minutes = parseInt(optionValue.replace('m', ''), 10);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+        loadTasks();
+        return;
+    }
+
+    setTaskNotifySetting(taskId, {
+        enabled: true,
+        intervalMinutes: minutes,
+        isCustom: false,
+        customValue: minutes,
+        customUnit: 'minutes'
+    });
+
+    unlockTaskNotificationSound();
+    await ensureNotificationPermission();
     loadTasks();
 }
 
-async function stopTimer(taskId) {
-    await fetch(`${API_BASE}/tasks/${taskId}/timer/stop`, { method: 'POST' });
+function editTaskCustomNotify(taskId) {
+    handleTaskNotifyOptionChange(taskId, 'custom');
+}
+function maybeSendTaskRunningNotification(taskId, taskTitle, runningSeconds) {
+    const setting = getTaskNotifySetting(taskId);
+    if (!setting.enabled) return;
+
+    const intervalMs = setting.intervalMinutes * 60 * 1000;
+    const currentMs = runningSeconds * 1000;
+    const step = Math.floor(currentMs / intervalMs);
+
+    if (step < 1) return;
+
+    const key = String(taskId);
+    const state = runningTimerNotificationState[key] || { lastStep: 0 };
+    if (step <= state.lastStep) return;
+
+    runningTimerNotificationState[key] = { lastStep: step };
+
+    playTaskNotificationSound();
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Task timer reminder', {
+            body: `${taskTitle} is still running (${formatDurationShort(runningSeconds)}).`,
+            tag: `task-running-${taskId}`
+        });
+    }
+}
+
+function setupTaskDragAndDrop() {
+    const dropTargets = [
+        { id: 'task-list-todo', status: 'todo' },
+        { id: 'task-list-progress', status: 'inprogress' },
+        { id: 'task-list-done', status: 'done' }
+    ];
+
+    dropTargets.forEach(({ id, status }) => {
+        const zone = document.getElementById(id);
+        if (!zone) return;
+
+        zone.ondragover = (e) => {
+            e.preventDefault();
+            zone.classList.add('drag-over');
+        };
+
+        zone.ondragleave = (e) => {
+            if (!zone.contains(e.relatedTarget)) {
+                zone.classList.remove('drag-over');
+            }
+        };
+
+        zone.ondrop = async (e) => {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+
+            const dataId = parseInt(e.dataTransfer.getData('text/task-id'));
+            const taskId = Number.isFinite(dataId) ? dataId : draggedTaskId;
+            if (!taskId) return;
+
+            await updateTaskStatus(taskId, status, true);
+            await loadTasks();
+        };
+    });
+}
+
+async function startTimer(taskId) {
+    await fetch(`${API_BASE}/tasks/${taskId}/timer/start`, { method: 'POST' });
+
+    const setting = getTaskNotifySetting(taskId);
+    if (setting.enabled) {
+        unlockTaskNotificationSound();
+        await ensureNotificationPermission();
+    }
+
+    runningTimerNotificationState[String(taskId)] = { lastStep: 0 };
     loadTasks();
+}
+
+async function stopTimer(taskId, skipReload = false) {
+    await fetch(`${API_BASE}/tasks/${taskId}/timer/stop`, { method: 'POST' });
+    delete runningTimerNotificationState[String(taskId)];
+    if (!skipReload) loadTasks();
 }
 
 async function resetTimer(taskId) {
     if(!confirm("Reset timer? This will erase all time logs for this task.")) return;
     await fetch(`${API_BASE}/tasks/${taskId}/timer/reset`, { method: 'POST' });
+    delete runningTimerNotificationState[String(taskId)];
     loadTasks();
 }
-
 function switchTab(tabName) {
     document.querySelectorAll('.view-section').forEach(el => {
         el.classList.remove('active');
@@ -373,7 +647,7 @@ async function loadNoteFolders() {
         
         // "All Notes" option
         const allDiv = document.createElement('div');
-        allDiv.innerHTML = '📝 <strong>All Notes</strong>';
+        allDiv.innerHTML = '<strong>All Notes</strong>';
         allDiv.style.padding = '10px';
         allDiv.style.cursor = 'pointer';
         allDiv.style.borderBottom = '1px solid #eee';
@@ -581,6 +855,25 @@ function toggleBmView(view) {
     loadBookmarks();
 }
 
+function updateXPreviewModeButtons() {
+    const compactBtn = document.getElementById('x-mode-compact-btn');
+    const fullBtn = document.getElementById('x-mode-full-btn');
+    if (!compactBtn || !fullBtn) return;
+
+    const activeStyle = 'background: var(--accent-cyan); color: #111; border: 1px solid var(--accent-cyan); border-radius: 4px; padding: 10px 12px; font-size: 12px;';
+    const idleStyle = 'background: #222; color: white; border: 1px solid #444; border-radius: 4px; padding: 10px 12px; font-size: 12px;';
+
+    compactBtn.style.cssText = xPreviewMode === 'compact' ? activeStyle : idleStyle;
+    fullBtn.style.cssText = xPreviewMode === 'full' ? activeStyle : idleStyle;
+}
+
+function setXPreviewMode(mode) {
+    xPreviewMode = mode === 'full' ? 'full' : 'compact';
+    localStorage.setItem('xPreviewMode', xPreviewMode);
+    updateXPreviewModeButtons();
+    loadBookmarks();
+}
+
 function renderBookmarks() {
     const mainContainer = document.getElementById('bookmark-list');
     mainContainer.innerHTML = '';
@@ -644,7 +937,10 @@ function renderBookmarks() {
             });
         }
     }
-    renderTwitterWidgets();
+    const hasTwitterBookmarks = displayData.some(bm => bm.url.includes('x.com') || bm.url.includes('twitter.com'));
+    if (currentBmView === 'grid' && xPreviewMode === 'full' && hasTwitterBookmarks) {
+        renderTwitterWidgets();
+    }
 }
 
 function createBookmarkElement(bm) {
@@ -652,6 +948,8 @@ function createBookmarkElement(bm) {
     div.className = 'bm-item';
     
     const isTwitter = bm.url.includes('x.com') || bm.url.includes('twitter.com');
+    const displayUrl = bm.url.replace(/^https?:\/\/(www\.)?/i, '');
+    const compactUrl = displayUrl.length > 52 ? `${displayUrl.slice(0, 52)}...` : displayUrl;
     
     // Tags HTML (Neon Chips)
     let tagsHtml = '';
@@ -676,9 +974,21 @@ function createBookmarkElement(bm) {
         // --- GRID VIEW ---
         let mediaHtml = '';
         if (isTwitter) {
-            mediaHtml = navigator.onLine 
-                ? `<div style="min-height:100px; display:flex; justify-content:center; overflow:hidden; margin-bottom:10px;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>` 
-                : `<div style="padding:20px; text-align:center; background:#222; border:1px dashed #444; font-size:12px; color:#666;">Offline Preview</div>`;
+            if (xPreviewMode === 'full') {
+                mediaHtml = navigator.onLine
+                    ? `<div style="min-height:100px; display:flex; justify-content:center; overflow:hidden; margin-bottom:10px;"><blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${bm.url.replace('x.com','twitter.com')}"></a></blockquote></div>`
+                    : `<div style="padding:20px; text-align:center; background:#222; border:1px dashed #444; font-size:12px; color:#666;">Offline Preview</div>`;
+            } else {
+                mediaHtml = `
+                    <a class="x-compact-card" href="${bm.url}" target="_blank" rel="noopener noreferrer">
+                        <div class="x-compact-badge">X</div>
+                        <div class="x-compact-meta">
+                            <div class="x-compact-label">X Post</div>
+                            <div class="x-compact-url">${compactUrl}</div>
+                        </div>
+                        <div class="x-compact-open">Open</div>
+                    </a>`;
+            }
         } else if (bm.thumbnail) {
             mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px; margin-bottom:10px; object-fit: cover; opacity: 0.9;" onerror="this.style.display='none'">`;
         }
@@ -757,7 +1067,7 @@ async function loadFolders() {
         allDiv.style.color = 'var(--text-white)';
         allDiv.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
         allDiv.style.fontSize = '14px';
-        allDiv.innerHTML = '📂 <strong>View All</strong>';
+        allDiv.innerHTML = '<strong>View All</strong>';
         allDiv.onclick = () => {
             switchTab('bookmarks');
             setViewFolder(null, 'All');
@@ -939,11 +1249,16 @@ async function editTaskTitle(id, currentTitle) {
     }
 }
 
-async function updateTaskStatus(id, newStatus) {
-    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
-    loadTasks();
-}
+async function updateTaskStatus(id, newStatus, skipReload = false) {
+    const currentStatus = taskStatusMap[id];
 
+    if (currentStatus === 'inprogress' && newStatus !== 'inprogress') {
+        await stopTimer(id, true);
+    }
+
+    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+    if (!skipReload) loadTasks();
+}
 async function updateTaskDate(id, dateStr) {
     if(!dateStr) return;
     await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_date: dateStr }) });
@@ -956,10 +1271,32 @@ function renderTasks(tasks) {
     document.getElementById('task-list-progress').innerHTML = '';
     document.getElementById('task-list-done').innerHTML = '';
 
+    taskStatusMap = {};
     tasks.forEach(task => {
+        taskStatusMap[task.id] = task.status;
+    });
+
+    const todoTasks = tasks.filter(t => t.status === 'todo');
+    const inProgressTasks = tasks
+        .filter(t => t.status === 'inprogress')
+        .sort((a, b) => {
+            const aRunning = a.active_start ? 1 : 0;
+            const bRunning = b.active_start ? 1 : 0;
+            if (aRunning !== bRunning) return bRunning - aRunning;
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        });
+    const doneTasks = tasks.filter(t => t.status === 'done');
+
+    const orderedTasks = [...todoTasks, ...inProgressTasks, ...doneTasks];
+
+    orderedTasks.forEach(task => {
         // 2. Create the card container
         const card = document.createElement('div');
         card.className = 'task-card';
+        card.draggable = true;
+        card.setAttribute('data-task-id', String(task.id));
+        card.setAttribute('data-task-status', task.status);
+
         // Base styling moved to CSS, specific overrides here:
         card.style.padding = '15px';
         card.style.marginBottom = '15px';
@@ -967,6 +1304,18 @@ function renderTasks(tasks) {
         card.style.cursor = 'pointer';
         card.style.position = 'relative';
         card.style.overflow = 'hidden';
+
+        card.addEventListener('dragstart', (e) => {
+            draggedTaskId = task.id;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/task-id', String(task.id));
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            document.querySelectorAll('.task-container').forEach(el => el.classList.remove('drag-over'));
+        });
 
         // Dynamic Border/Background based on status
         if(task.status === 'done') {
@@ -981,50 +1330,70 @@ function renderTasks(tasks) {
 
         // Open modal click handler
         card.onclick = (e) => {
-            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !e.target.closest('button')) {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && !e.target.closest('button')) {
                 openTaskModal(task.id);
             }
         };
 
         // 3. UI Components
-
-        // Status Controls
         let controls = '';
         if (task.status === 'todo') {
-            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:var(--accent-cyan); color:black; border:none; padding:4px 8px; border-radius:4px;">START &rarr;</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:var(--accent-cyan); color:black; border:none; padding:4px 8px; border-radius:4px;">Move to in progress</button>`;
         } else if (task.status === 'inprogress') {
             controls = `
-                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'todo')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">&larr; PAUSE</button> 
-                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'done')" style="font-size:10px; background:var(--primary-red); color:white; border:none; padding:4px 8px; border-radius:4px; margin-left:5px;">DONE</button>`;
+                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'todo')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">Move to todo</button>
+                <button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'done')" style="font-size:10px; background:var(--primary-red); color:white; border:none; padding:4px 8px; border-radius:4px; margin-left:5px;">Completed</button>`;
         } else {
-            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">RE-OPEN</button>`;
+            controls = `<button onclick="event.stopPropagation(); updateTaskStatus(${task.id}, 'inprogress')" style="font-size:10px; background:#444; color:white; border:none; padding:4px 8px; border-radius:4px;">Re-open</button>`;
         }
 
-        // Date Picker
-        let dateHtml = task.due_date 
-            ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">`
-            : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
-        
-        // Timer Logic
+        let dateHtml = '';
+        if (task.status === 'todo') {
+            dateHtml = task.due_date
+                ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">`
+                : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
+        } else if (task.due_date) {
+            dateHtml = `<div style="font-size:11px; color:#888;">Due: ${task.due_date}</div>`;
+        }
+
         const past = parseInt(task.past_duration) || 0;
         let timerControls = '';
-        if (task.active_start) {
-            const activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}"`;
-            timerControls = `
-                <div style="display:flex; align-items:center; background: rgba(5, 217, 232, 0.1); padding: 5px; border-radius: 4px;">
-                    <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:var(--accent-cyan); margin-right:10px; font-size:12px;">Syncing...</span>
-                    <button onclick="event.stopPropagation(); stopTimer(${task.id})" style="border:none; background:none; color:var(--primary-red); cursor:pointer; font-size:16px; padding:0; line-height:1;">⏹</button>
-                </div>`;
-        } else {
-            timerControls = `
-                <div style="display:flex; align-items:center;">
-                    <span class="task-timer-display" style="font-family:monospace; color:#888; margin-right:10px; font-size:12px;">${formatTime(past)}</span>
-                    <button onclick="event.stopPropagation(); startTimer(${task.id})" style="border:none; background:none; color:var(--accent-cyan); cursor:pointer; font-size:16px; padding:0; line-height:1;">▶</button>
-                    <button onclick="event.stopPropagation(); resetTimer(${task.id})" title="Reset" style="border:none; background:none; color:#444; cursor:pointer; font-size:12px; margin-left:8px; padding:0;">↺</button>
-                </div>`;
+        if (task.status === 'inprogress') {
+            const notifyOptionValue = getTaskNotifyOptionValue(task.id);
+            const notifyLabel = getTaskNotifyLabel(task.id);
+
+            if (task.active_start) {
+                const safeTitleAttr = String(task.title || '').replace(/"/g, '&quot;');
+                const activeAttr = `data-active-start="${task.active_start}" data-past-duration="${past}" data-task-id="${task.id}" data-task-title="${safeTitleAttr}"`;
+                timerControls = `
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; align-items:center; background: rgba(5, 217, 232, 0.1); padding: 5px; border-radius: 4px;">
+                            <span class="task-timer-display" ${activeAttr} style="font-family:monospace; font-weight:bold; color:var(--accent-cyan); margin-right:10px; font-size:12px;">Syncing...</span>
+                            <button onclick="event.stopPropagation(); stopTimer(${task.id})" style="border:none; background:none; color:var(--primary-red); cursor:pointer; font-size:16px; padding:0; line-height:1;">&#9209;</button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:11px; color:#999;">Notify</span>
+                            <select onclick="event.stopPropagation()" onchange="handleTaskNotifyOptionChange(${task.id}, this.value)" style="font-size:11px; background:#1a1a1a; color:#ddd; border:1px solid #444; border-radius:4px; padding:3px 6px;">
+                                <option value="off" ${notifyOptionValue === 'off' ? 'selected' : ''}>Off</option>
+                                <option value="10m" ${notifyOptionValue === '10m' ? 'selected' : ''}>Every 10m</option>
+                                <option value="20m" ${notifyOptionValue === '20m' ? 'selected' : ''}>Every 20m</option>
+                                <option value="30m" ${notifyOptionValue === '30m' ? 'selected' : ''}>Every 30m</option>
+                                <option value="60m" ${notifyOptionValue === '60m' ? 'selected' : ''}>Every 60m</option>
+                                <option value="custom" ${notifyOptionValue === 'custom' ? 'selected' : ''}>Custom</option>
+                            </select>
+                            <button onclick="event.stopPropagation(); editTaskCustomNotify(${task.id})" style="font-size:10px; background:#222; color:#ddd; border:1px solid #444; border-radius:4px; padding:2px 6px; cursor:pointer;">Edit</button>                            <span style="font-size:10px; color:#666;">${notifyLabel}</span>
+                        </div>
+                    </div>`;
+            } else {
+                timerControls = `
+                    <div style="display:flex; align-items:center;">
+                        <span class="task-timer-display" style="font-family:monospace; color:#888; margin-right:10px; font-size:12px;">${formatTime(past)}</span>
+                        <button onclick="event.stopPropagation(); startTimer(${task.id})" style="border:none; background:none; color:var(--accent-cyan); cursor:pointer; font-size:16px; padding:0; line-height:1;">&#9654;</button>
+                        <button onclick="event.stopPropagation(); resetTimer(${task.id})" title="Reset" style="border:none; background:none; color:#444; cursor:pointer; font-size:12px; margin-left:8px; padding:0;">&#8634;</button>
+                    </div>`;
+            }
         }
 
-        // Checklist Progress Bar
         let checklistProgressHtml = '';
         try {
             const checklist = task.checklist ? JSON.parse(task.checklist) : [];
@@ -1036,24 +1405,23 @@ function renderTasks(tasks) {
                     </div>`;
             }
         } catch (e) { }
-        
-        // 4. Assemble HTML
+
+        const safeTitle = JSON.stringify(task.title || '');
+
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${task.title}</div>
                 <div style="font-size:12px; white-space:nowrap;">
-                    <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, "${task.title}")' style="border:none;background:none;cursor:pointer; opacity:0.5; color:white;">✏️</button>
+                    <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, ${safeTitle})' style="border:none;background:none;cursor:pointer; opacity:0.5; color:white;">&#9998;</button>
                     <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:var(--primary-red); opacity:0.8;">&times;</button>
                 </div>
             </div>
-            
+
             <div style="margin-bottom:8px;">${dateHtml}</div>
 
             ${checklistProgressHtml}
 
-            <div style="margin-bottom:10px;">
-                ${timerControls}
-            </div>
+            ${timerControls ? `<div style="margin-bottom:10px;">${timerControls}</div>` : ''}
 
             <div style="margin-top:5px; padding-top:5px; border-top:1px dashed #333;">
                 ${controls}
@@ -1064,8 +1432,9 @@ function renderTasks(tasks) {
         else if (task.status === 'inprogress') document.getElementById('task-list-progress').appendChild(card);
         else document.getElementById('task-list-done').appendChild(card);
     });
-}
 
+    setupTaskDragAndDrop();
+}
 // Adds a new item to the checklist
 function addChecklistItem() {
     const input = document.getElementById('task-checklist-input');
@@ -1348,10 +1717,10 @@ function renderSearchResults(results, query) {
         
         // Dynamic Border Color based on Type
         let typeColor = '#ccc';
-        let icon = '❓';
-        if(item.type === 'bookmark') { typeColor = 'var(--accent-cyan)'; icon = '🔖'; }
-        if(item.type === 'task') { typeColor = 'var(--primary-red)'; icon = '✅'; }
-        if(item.type === 'note') { typeColor = '#ffc107'; icon = '📝'; }
+        let icon = '?';
+        if(item.type === 'bookmark') { typeColor = 'var(--accent-cyan)'; icon = '[BM]'; }
+        if(item.type === 'task') { typeColor = 'var(--primary-red)'; icon = '[Task]'; }
+        if(item.type === 'note') { typeColor = '#ffc107'; icon = '[Note]'; }
         
         div.style.borderLeft = `5px solid ${typeColor}`;
 
@@ -1469,3 +1838,4 @@ async function saveBookmarkChanges() {
         alert("Update failed. Check console for details.");
     }
 }
+

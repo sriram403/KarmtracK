@@ -248,6 +248,21 @@ app.post('/api/notes', (req, res) => {
     });
 });
 
+app.put('/api/notes/:id', (req, res) => {
+    const { title, content, folderId } = req.body;
+    const noteId = req.params.id;
+    const normalizedFolderId = folderId === '' || folderId === undefined ? null : folderId;
+
+    db.run(
+        "UPDATE notes SET title = COALESCE(?, title), content = COALESCE(?, content), folder_id = ? WHERE id = ?",
+        [title, content, normalizedFolderId, noteId],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Note updated" });
+        }
+    );
+});
+
 app.put('/api/tasks/:id', (req, res) => {
     const { title, status, due_date, notes, checklist } = req.body;
     const taskId = req.params.id;
