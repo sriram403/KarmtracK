@@ -2215,7 +2215,6 @@ let _statsCharts = {};
 
 async function loadStats() {
     try {
-        document.querySelector('#view-stats .charts-grid').innerHTML = '<div class="loading-spinner" style="grid-column:1/-1"></div>';
         const data = await apiFetch(`${API_BASE}/stats`);
         renderStats(data);
     } catch (err) {
