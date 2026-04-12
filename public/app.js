@@ -1676,6 +1676,64 @@ async function loadDashboard() {
     document.getElementById('dash-bm-count').innerText = `${bookmarks.length}`;
 
     renderDashboardCalendar(tasks);
+    initTimeLeft();
+}
+
+function getISOWeekNumber(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function updateTimeLeft() {
+    const now = new Date();
+    const DAY_NAMES = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+    const MONTH_NAMES = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+
+    const secOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const dayFrac = secOfDay / 86400;
+
+    // ISO week: Mon=1 … Sun=7
+    const isoDow = now.getDay() === 0 ? 7 : now.getDay();
+    const weekFrac = ((isoDow - 1) + dayFrac) / 7;
+
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthFrac = ((now.getDate() - 1) + dayFrac) / daysInMonth;
+
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const yearEnd   = new Date(now.getFullYear() + 1, 0, 1);
+    const yearFrac  = (now - yearStart) / (yearEnd - yearStart);
+
+    const rows = [
+        { id: 'tl-day',   label: DAY_NAMES[now.getDay()],           pct: dayFrac   },
+        { id: 'tl-week',  label: `WEEK ${getISOWeekNumber(now)}`,   pct: weekFrac  },
+        { id: 'tl-month', label: MONTH_NAMES[now.getMonth()],       pct: monthFrac },
+        { id: 'tl-year',  label: String(now.getFullYear()),         pct: yearFrac  },
+    ];
+
+    const TOTAL_DOTS = 50;
+    rows.forEach(({ id, label, pct }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.querySelector('.time-label').textContent = label;
+        el.querySelector('.time-pct').textContent = Math.round(pct * 100) + '%';
+
+        const filled = Math.round(pct * TOTAL_DOTS);
+        const track = el.querySelector('.time-bar-track');
+        track.innerHTML = Array.from({ length: TOTAL_DOTS }, (_, i) => {
+            const isHot = i === filled - 1;
+            const cls = i < filled ? (isHot ? 'time-dot filled hot' : 'time-dot filled') : 'time-dot';
+            return `<span class="${cls}"></span>`;
+        }).join('');
+    });
+}
+
+let _timeLeftInterval = null;
+function initTimeLeft() {
+    updateTimeLeft();
+    if (_timeLeftInterval) clearInterval(_timeLeftInterval);
+    _timeLeftInterval = setInterval(updateTimeLeft, 60000);
 }
 
 let searchDebounce;
