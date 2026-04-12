@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -38,15 +40,31 @@
                 <li onclick="switchTab('research')" id="nav-research">
                     <span class="material-icons">library_books</span> Research
                 </li>
+                <li onclick="switchTab('archive')" id="nav-archive">
+                    <span class="material-icons">inventory_2</span> Archive
+                </li>
+                <li onclick="switchTab('stats')" id="nav-stats">
+                    <span class="material-icons">bar_chart</span> Stats
+                </li>
             </ul>
 
             <!-- Folders Section -->
-            <div class="sidebar-section-title">Folders</div>
-            <div id="sidebar-folders" style="flex: 1; overflow-y: auto; max-height: 200px;"></div>
+            <div class="sidebar-section-title" onclick="toggleSidebarSection('sidebar-folders', this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                Folders <span class="material-icons" style="font-size:16px; transition:transform 0.2s;">expand_more</span>
+            </div>
+            <div id="sidebar-folders" style="flex: 1; overflow-y: auto; max-height: 200px; display:none;"></div>
 
             <!-- Tags Section -->
-            <div class="sidebar-section-title">Tags</div>
-            <div id="sidebar-tags" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+            <div class="sidebar-section-title" onclick="toggleSidebarSection('sidebar-tags', this)" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                Tags <span class="material-icons" style="font-size:16px; transition:transform 0.2s;">expand_more</span>
+            </div>
+            <div id="sidebar-tags" style="display: none; flex-wrap: wrap; gap: 5px;"></div>
+
+            <div class="shortcut-hints">
+                <kbd>Ctrl</kbd>+<kbd>K</kbd> Search &nbsp;
+                <kbd>Ctrl</kbd>+<kbd>1-4</kbd> Tabs<br>
+                <kbd>Esc</kbd> Close modal
+            </div>
         </nav>
 
         <!-- MAIN CONTENT: The Glass Pane -->
@@ -69,9 +87,13 @@
                             <label for="edit-modal-desc-input">Description / Idea</label>
                             <textarea id="edit-modal-desc-input" rows="4"></textarea>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="position: relative;">
                             <label for="edit-modal-tags-input">Tags (comma-separated)</label>
-                            <input type="text" id="edit-modal-tags-input">
+                            <input type="text" id="edit-modal-tags-input" autocomplete="off"
+                                onfocus="showTagDropdown('edit-tag-dropdown', 'edit-modal-tags-input')"
+                                oninput="filterTagDropdown('edit-tag-dropdown', 'edit-modal-tags-input')"
+                                onblur="setTimeout(()=>hideTagDropdown('edit-tag-dropdown'), 200)">
+                            <div id="edit-tag-dropdown" class="tag-dropdown"></div>
                         </div>
                     </div>
 
@@ -124,6 +146,13 @@
             <!-- VIEW: Search Results -->
             <div id="view-search" class="view-section hidden">
                 <h1>Search Results</h1>
+                <div class="search-filters" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                    <span style="color: var(--text-muted); font-size: 12px; text-transform: uppercase;">Filter:</span>
+                    <button class="filter-chip active" data-filter="" onclick="setSearchFilter('', this)">All</button>
+                    <button class="filter-chip" data-filter="bookmark" onclick="setSearchFilter('bookmark', this)">Bookmarks</button>
+                    <button class="filter-chip" data-filter="task" onclick="setSearchFilter('task', this)">Tasks</button>
+                    <button class="filter-chip" data-filter="note" onclick="setSearchFilter('note', this)">Notes</button>
+                </div>
                 <div id="search-results-container"></div>
             </div>
 
@@ -150,6 +179,20 @@
                     <div class="stat-card">
                         <h3>HOARDED LINKS</h3>
                         <p id="dash-bm-count">0</p>
+                    </div>
+                </div>
+
+                <!-- Quick Add Widget -->
+                <div class="quick-add-card">
+                    <h3>QUICK ADD</h3>
+                    <div class="quick-add-tabs">
+                        <button class="quick-tab active" onclick="switchQuickTab('bookmark', this)">Bookmark</button>
+                        <button class="quick-tab" onclick="switchQuickTab('task', this)">Task</button>
+                        <button class="quick-tab" onclick="switchQuickTab('note', this)">Note</button>
+                    </div>
+                    <div class="quick-add-form">
+                        <input type="text" id="quick-add-input" placeholder="Paste a URL..." onkeydown="if(event.key==='Enter') quickAdd()">
+                        <button onclick="quickAdd()" style="background: var(--accent-cyan); color: black; border: none; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: bold;">ADD</button>
                     </div>
                 </div>
 
@@ -227,7 +270,13 @@
                             <!-- Row 2 -->
                             <div style="display: flex; gap: 15px;">
                                 <input type="text" id="bm-title-input" placeholder="Title (Optional override)..." style="flex: 1; padding: 12px;">
-                                <input type="text" id="bm-tag-input" placeholder="Tags (comma, separated)..." style="flex: 1; padding: 12px;">
+                                <div style="flex: 1; position: relative;">
+                                    <input type="text" id="bm-tag-input" placeholder="Tags (comma, separated)..." style="width: 100%; box-sizing: border-box; padding: 12px;" autocomplete="off"
+                                        onfocus="showTagDropdown('bm-tag-dropdown', 'bm-tag-input')"
+                                        oninput="filterTagDropdown('bm-tag-dropdown', 'bm-tag-input')"
+                                        onblur="setTimeout(()=>hideTagDropdown('bm-tag-dropdown'), 200)">
+                                    <div id="bm-tag-dropdown" class="tag-dropdown"></div>
+                                </div>
                             </div>
 
                             <!-- Row 3 -->
@@ -253,12 +302,22 @@
                 <!-- Filter Bar -->
                 <div style="margin: 30px 0; display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1);">
                     <span class="material-icons" style="color: var(--accent-cyan); margin-left: 10px;">search</span>
-                    <input type="text" 
-                        placeholder="Filter archives..." 
+                    <input type="text"
+                        placeholder="Filter bookmarks..."
                         onkeyup="filterBookmarksLocally(this.value)"
                         style="border: none; outline: none; flex: 1; background: transparent; font-size: 1.1rem;">
+                    <button onclick="toggleBulkMode()" id="bulk-toggle-btn" style="padding: 8px 16px; background: transparent; border: 1px solid #444; color: #aaa; border-radius: 20px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
+                        Select
+                    </button>
                 </div>
-                
+
+                <!-- Bulk action bar -->
+                <div id="bulk-bar" class="bulk-bar hidden">
+                    <span id="bulk-count">0 selected</span>
+                    <button onclick="bulkDelete()" style="background: var(--primary-red); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Delete Selected</button>
+                    <button onclick="toggleBulkMode()" style="background: transparent; border: 1px solid #555; color: #aaa; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                </div>
+
                 <div id="bookmark-list"></div>
             </div>
 
@@ -289,6 +348,55 @@
                         <div id="simple-calendar"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- VIEW: Stats -->
+            <div id="view-stats" class="view-section hidden">
+                <h1>Stats</h1>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>TOTAL BOOKMARKS</h3>
+                        <p id="stat-bm-total">—</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>TASKS DONE</h3>
+                        <p id="stat-tasks-done">—</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>COMPLETION RATE</h3>
+                        <p id="stat-completion-rate">—</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>RESEARCH NOTES</h3>
+                        <p id="stat-notes-total">—</p>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h4>Bookmarks Added (Last 8 Weeks)</h4>
+                        <canvas id="chart-bm-weekly" height="160"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Task Status Breakdown</h4>
+                        <canvas id="chart-tasks-status" height="160"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Top Tags</h4>
+                        <canvas id="chart-top-tags" height="160"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Most Tracked Tasks (hours)</h4>
+                        <canvas id="chart-top-tasks" height="160"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: Archive -->
+            <div id="view-archive" class="view-section hidden">
+                <h1>Archive</h1>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">Items you've deleted are stored here. Restore or permanently remove them.</p>
+                <div id="archive-list"></div>
             </div>
 
             <!-- VIEW: Research -->
@@ -323,7 +431,7 @@
                     <!-- EDITOR -->
                     <div class="note-editor-area" style="flex: 1; display: flex; flex-direction: column;">
                         <input type="text" id="note-title-input" placeholder="Untitled Note" style="background: transparent; color: white; font-size: 20px; font-weight: bold; padding: 20px; border: none; border-bottom: 1px solid #333; outline: none;">
-                        
+
                         <div style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333; font-size: 12px; color: #aaa; display: flex; justify-content: space-between; align-items: center;">
                             <span>
                                 Folder: <select id="note-folder-select" onchange="moveCurrentNote(this.value)" style="margin-left: 5px; background: #333; color: white; border: none; padding: 2px;"></select>
@@ -334,12 +442,37 @@
                             </div>
                         </div>
 
-                        <div id="note-editor" contenteditable="true" class="block-editor" style="flex: 1; padding: 20px; outline: none; overflow-y: auto; line-height: 1.6;"></div>
+                        <!-- Markdown Toolbar -->
+                        <div id="note-toolbar" class="note-toolbar">
+                            <button data-view="edit" onclick="setNoteViewMode('edit')" class="active">Edit</button>
+                            <button data-view="split" onclick="setNoteViewMode('split')">Split</button>
+                            <button data-view="preview" onclick="setNoteViewMode('preview')">Preview</button>
+                            <span style="margin-left: auto; font-size: 10px; color: #555;">Markdown supported</span>
+                        </div>
+
+                        <div style="flex:1; display:flex; overflow:hidden;">
+                            <textarea id="note-editor" class="block-editor" placeholder="Start writing... (Markdown supported)" oninput="onNoteEditorInput()" style="flex:1; padding:20px; background:#111; color:#ddd; border:none; outline:none; resize:none; font-family:'Space Grotesk',monospace; font-size:14px; line-height:1.7; overflow-y:auto;"></textarea>
+                            <div id="note-preview" style="border-left:1px solid #333;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Confirm Dialog -->
+    <div id="confirm-dialog-backdrop" class="hidden">
+        <div id="confirm-dialog-content">
+            <p id="confirm-dialog-message"></p>
+            <div class="confirm-dialog-actions">
+                <button id="confirm-dialog-cancel" class="btn-secondary">Cancel</button>
+                <button id="confirm-dialog-yes" class="btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

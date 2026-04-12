@@ -76,7 +76,14 @@ function initDb() {
         db.run(`CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)`);
         db.run(`CREATE TABLE IF NOT EXISTS item_tags (item_id INTEGER, item_type TEXT, tag_id INTEGER, PRIMARY KEY (item_id, item_type, tag_id), FOREIGN KEY (tag_id) REFERENCES tags(id))`);
         db.run(`CREATE TABLE IF NOT EXISTS links (source_id INTEGER, source_type TEXT, target_id INTEGER, target_type TEXT)`);
-        
+
+        // Schema migrations: add pinned and archived columns if missing
+        db.run(`ALTER TABLE bookmarks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE bookmarks ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE notes ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+
         console.log("Database initialized with full modern schema.");
     });
 }
@@ -89,8 +96,9 @@ app.get('/api/bookmarks', (req, res) => {
         LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
         LEFT JOIN tags t ON it.tag_id = t.id
         LEFT JOIN folders f ON b.folder_id = f.id
+        WHERE b.archived = 0
         GROUP BY b.id
-        ORDER BY f.name, b.created_at DESC
+        ORDER BY b.pinned DESC, f.name, b.created_at DESC
     `;
     db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -130,15 +138,9 @@ app.post('/api/bookmarks', (req, res) => {
 
 app.delete('/api/bookmarks/:id', (req, res) => {
     const id = req.params.id;
-    // 1. Delete the Bookmark
-    db.run("DELETE FROM bookmarks WHERE id = ?", id, (err) => {
+    db.run("UPDATE bookmarks SET archived = 1 WHERE id = ?", id, (err) => {
         if (err) return res.status(500).json({ error: err.message });
-        
-        // 2. Delete the Tag Links (Clean up!)
-        db.run("DELETE FROM item_tags WHERE item_id = ? AND item_type = 'bookmark'", id, (err) => {
-            if (err) console.error("Error cleaning tags", err);
-            res.json({ message: "Deleted bookmark and tag links" });
-        });
+        res.json({ message: "Bookmark archived" });
     });
 });
 
@@ -163,8 +165,10 @@ app.get('/api/tasks', (req, res) => {
                 WHERE task_id = t.id AND end_time IS NOT NULL
             ) as break_count
         FROM tasks t
+        WHERE t.archived = 0
+        ORDER BY t.pinned DESC, t.created_at DESC
     `;
-    
+
     db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -179,17 +183,18 @@ app.post('/api/tasks', (req, res) => {
     });
 });
 
-// START TIMER
+// START TIMER (atomic check-and-insert to prevent race conditions)
 app.post('/api/tasks/:id/timer/start', (req, res) => {
     const taskId = req.params.id;
-    // Only start if there isn't already one running
-    db.get("SELECT id FROM task_sessions WHERE task_id = ? AND end_time IS NULL", [taskId], (err, row) => {
-        if(row) return res.json({ message: "Timer already running" });
-        
-        db.run("INSERT INTO task_sessions (task_id, start_time) VALUES (?, CURRENT_TIMESTAMP)", [taskId], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: "Timer started" });
-        });
+    const sql = `INSERT INTO task_sessions (task_id, start_time)
+        SELECT ?, CURRENT_TIMESTAMP
+        WHERE NOT EXISTS (
+            SELECT 1 FROM task_sessions WHERE task_id = ? AND end_time IS NULL
+        )`;
+    db.run(sql, [taskId, taskId], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) return res.json({ message: "Timer already running" });
+        res.json({ message: "Timer started" });
     });
 });
 
@@ -211,22 +216,19 @@ app.post('/api/tasks/:id/timer/reset', (req, res) => {
     });
 });
 
-// Also update DELETE TASK to clean up sessions
+// Soft delete task (archive)
 app.delete('/api/tasks/:id', (req, res) => {
     const id = req.params.id;
-    db.serialize(() => {
-        db.run("DELETE FROM task_sessions WHERE task_id = ?", id); // Clean logs
-        db.run("DELETE FROM tasks WHERE id = ?", id, (err) => { // Delete task
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: "Task deleted" });
-        });
+    db.run("UPDATE tasks SET archived = 1 WHERE id = ?", id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Task archived" });
     });
 });
 
 // --- Notes ---
 app.get('/api/notes', (req, res) => {
     // UPDATED: Now selects folder_id
-    db.all("SELECT id, title, content, folder_id, created_at FROM notes ORDER BY created_at DESC", [], (err, rows) => {
+    db.all("SELECT id, title, content, folder_id, created_at FROM notes WHERE archived = 0 ORDER BY created_at DESC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -302,6 +304,59 @@ app.put('/api/tasks/:id', (req, res) => {
             res.json({ message: "Updated" });
         });
     }
+});
+
+/* ================= IMAGE PROXY (bypass hotlink/CORS on thumbnails) ================= */
+const http = require('http');
+const https = require('https');
+
+app.get('/api/proxy-image', (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).end();
+
+    let parsedUrl;
+    try { parsedUrl = new URL(imageUrl); } catch { return res.status(400).end(); }
+
+    // Block private/internal IPs to prevent SSRF
+    const hostname = parsedUrl.hostname;
+    if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|localhost|::1)/i.test(hostname)) {
+        return res.status(403).end();
+    }
+
+    const protocol = parsedUrl.protocol === 'https:' ? https : http;
+    const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || undefined,
+        path: parsedUrl.pathname + parsedUrl.search,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KarmtracK/1.0)', 'Referer': parsedUrl.origin }
+    };
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
+    const proxyReq = protocol.get(options, (proxyRes) => {
+        if (proxyRes.statusCode >= 400) return res.status(proxyRes.statusCode).end();
+
+        // Validate content type is an image
+        const contentType = proxyRes.headers['content-type'] || '';
+        if (!contentType.startsWith('image/')) {
+            proxyRes.destroy();
+            return res.status(400).end();
+        }
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+
+        let totalBytes = 0;
+        proxyRes.on('data', (chunk) => {
+            totalBytes += chunk.length;
+            if (totalBytes > MAX_SIZE) {
+                proxyRes.destroy();
+                res.status(413).end();
+            }
+        });
+        proxyRes.pipe(res);
+    });
+    proxyReq.on('error', () => res.status(502).end());
+    proxyReq.setTimeout(8000, () => { proxyReq.destroy(); res.status(504).end(); });
 });
 
 /* ================= UPDATED ENRICHMENT LOGIC (NO X SCRAPING) ================= */
@@ -381,44 +436,55 @@ app.get('/api/tags', (req, res) => {
 /* ================= GLOBAL SEARCH ================= */
 /* ================= GLOBAL SEARCH (FIXED) ================= */
 app.get('/api/search', (req, res) => {
-    const term = `%${req.query.q}%`; 
-    
-    // 1. Search Bookmarks (Now including Tags!)
-    const p1 = new Promise((resolve, reject) => {
-        const sql = `
-            SELECT DISTINCT b.id, b.title, b.url as info, 'bookmark' as type 
-            FROM bookmarks b
-            LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
-            LEFT JOIN tags t ON it.tag_id = t.id
-            WHERE b.title LIKE ? 
-               OR b.description LIKE ? 
-               OR b.url LIKE ? 
-               OR t.name LIKE ?
-        `;
-        // We pass 'term' 4 times now
-        db.all(sql, [term, term, term, term], (err, rows) => {
-            if (err) reject(err); else resolve(rows);
-        });
-    });
+    const term = `%${req.query.q}%`;
+    const typeFilter = req.query.type; // optional: 'bookmark', 'task', 'note'
+    const dateFrom = req.query.dateFrom;
+    const dateTo = req.query.dateTo;
+
+    const promises = [];
+
+    // 1. Search Bookmarks
+    if (!typeFilter || typeFilter === 'bookmark') {
+        promises.push(new Promise((resolve, reject) => {
+            let sql = `
+                SELECT DISTINCT b.id, b.title, b.url as info, 'bookmark' as type, b.created_at
+                FROM bookmarks b
+                LEFT JOIN item_tags it ON b.id = it.item_id AND it.item_type = 'bookmark'
+                LEFT JOIN tags t ON it.tag_id = t.id
+                WHERE b.archived = 0 AND (b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ? OR t.name LIKE ?)
+            `;
+            const params = [term, term, term, term];
+            if (dateFrom) { sql += ` AND b.created_at >= ?`; params.push(dateFrom); }
+            if (dateTo) { sql += ` AND b.created_at <= ?`; params.push(dateTo + ' 23:59:59'); }
+            db.all(sql, params, (err, rows) => { if (err) reject(err); else resolve(rows); });
+        }));
+    }
 
     // 2. Search Tasks
-    const p2 = new Promise((resolve, reject) => {
-        db.all("SELECT id, title, status as info, 'task' as type FROM tasks WHERE title LIKE ?", [term], (err, rows) => {
-            if (err) reject(err); else resolve(rows);
-        });
-    });
+    if (!typeFilter || typeFilter === 'task') {
+        promises.push(new Promise((resolve, reject) => {
+            let sql = `SELECT id, title, status as info, 'task' as type, created_at FROM tasks WHERE archived = 0 AND title LIKE ?`;
+            const params = [term];
+            if (dateFrom) { sql += ` AND created_at >= ?`; params.push(dateFrom); }
+            if (dateTo) { sql += ` AND created_at <= ?`; params.push(dateTo + ' 23:59:59'); }
+            db.all(sql, params, (err, rows) => { if (err) reject(err); else resolve(rows); });
+        }));
+    }
 
     // 3. Search Notes
-    const p3 = new Promise((resolve, reject) => {
-        db.all("SELECT id, title, 'note' as info, 'note' as type FROM notes WHERE title LIKE ? OR content LIKE ?", [term, term], (err, rows) => {
-            if (err) reject(err); else resolve(rows);
-        });
-    });
+    if (!typeFilter || typeFilter === 'note') {
+        promises.push(new Promise((resolve, reject) => {
+            let sql = `SELECT id, title, 'note' as info, 'note' as type, created_at FROM notes WHERE archived = 0 AND (title LIKE ? OR content LIKE ?)`;
+            const params = [term, term];
+            if (dateFrom) { sql += ` AND created_at >= ?`; params.push(dateFrom); }
+            if (dateTo) { sql += ` AND created_at <= ?`; params.push(dateTo + ' 23:59:59'); }
+            db.all(sql, params, (err, rows) => { if (err) reject(err); else resolve(rows); });
+        }));
+    }
 
-    Promise.all([p1, p2, p3])
+    Promise.all(promises)
         .then(results => {
-            const flatResults = results.flat(); 
-            // Remove duplicates (just in case) based on ID and Type
+            const flatResults = results.flat();
             const unique = flatResults.filter((v,i,a)=>a.findIndex(t=>(t.id === v.id && t.type === v.type))===i);
             res.json(unique);
         })
@@ -474,29 +540,72 @@ app.put('/api/bookmarks/:id', (req, res) => {
     });
 });
 
-// --- Tasks (Delete) ---
-app.delete('/api/tasks/:id', (req, res) => {
-    db.run("DELETE FROM tasks WHERE id = ?", req.params.id, (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Task deleted" });
-    });
-});
+// (Duplicate task DELETE/PUT routes removed — the primary definitions above handle these)
 
-// --- Tasks (Update - now includes title) ---
-app.put('/api/tasks/:id', (req, res) => {
-    const { title, status, due_date } = req.body;
-    let sql = "UPDATE tasks SET title = COALESCE(?, title), status = COALESCE(?, status), due_date = COALESCE(?, due_date) WHERE id = ?";
-    db.run(sql, [title, status, due_date, req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Updated" });
-    });
-});
-
-// --- Notes (Delete) ---
+// --- Notes (Soft Delete / Archive) ---
 app.delete('/api/notes/:id', (req, res) => {
-    db.run("DELETE FROM notes WHERE id = ?", req.params.id, (err) => {
+    db.run("UPDATE notes SET archived = 1 WHERE id = ?", req.params.id, (err) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Note deleted" });
+        res.json({ message: "Note archived" });
+    });
+});
+
+/* ================= PIN / FAVORITE TOGGLE ================= */
+app.put('/api/bookmarks/:id/pin', (req, res) => {
+    db.run("UPDATE bookmarks SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END WHERE id = ?", req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Pin toggled" });
+    });
+});
+
+app.put('/api/tasks/:id/pin', (req, res) => {
+    db.run("UPDATE tasks SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END WHERE id = ?", req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Pin toggled" });
+    });
+});
+
+/* ================= ARCHIVE / SOFT DELETE ================= */
+app.get('/api/archive', (req, res) => {
+    const p1 = new Promise((resolve, reject) => {
+        db.all("SELECT id, title, url, 'bookmark' as type, created_at FROM bookmarks WHERE archived = 1", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+    const p2 = new Promise((resolve, reject) => {
+        db.all("SELECT id, title, status, 'task' as type, created_at FROM tasks WHERE archived = 1", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+    const p3 = new Promise((resolve, reject) => {
+        db.all("SELECT id, title, 'note' as type, created_at FROM notes WHERE archived = 1", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+    Promise.all([p1, p2, p3])
+        .then(results => res.json(results.flat()))
+        .catch(err => res.status(500).json({ error: err.message }));
+});
+
+app.post('/api/archive/:type/:id/restore', (req, res) => {
+    const { type, id } = req.params;
+    const tables = { bookmark: 'bookmarks', task: 'tasks', note: 'notes' };
+    const table = tables[type];
+    if (!table) return res.status(400).json({ error: 'Invalid type' });
+    db.run(`UPDATE ${table} SET archived = 0 WHERE id = ?`, id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Restored" });
+    });
+});
+
+app.delete('/api/archive/:type/:id', (req, res) => {
+    const { type, id } = req.params;
+    const tables = { bookmark: 'bookmarks', task: 'tasks', note: 'notes' };
+    const table = tables[type];
+    if (!table) return res.status(400).json({ error: 'Invalid type' });
+    db.run(`DELETE FROM ${table} WHERE id = ? AND archived = 1`, id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Permanently deleted" });
     });
 });
 
@@ -510,7 +619,7 @@ app.get('/api/folders', (req, res) => {
 
 app.post('/api/folders', (req, res) => {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ error: "Folder name is required" });
+    if (!name || !name.trim()) return res.status(400).json({ error: "Folder name is required" });
     db.run("INSERT INTO folders (name) VALUES (?)", [name], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ id: this.lastID, name: name });
@@ -696,61 +805,60 @@ app.post('/api/import/database', (req, res) => {
                 });
             });
         }).then(() => {
-            
-            // 4. Restore Bookmarks
-            const bmStmt = db.prepare(`INSERT INTO bookmarks (url, title, description, thumbnail, created_at, folder_id) VALUES (?, ?, ?, ?, ?, ?)`);
-            const itemTagStmt = db.prepare(`INSERT OR IGNORE INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', ?)`);
+            return new Promise((resolve, reject) => {
+                db.serialize(() => {
+                    // 4. Restore Bookmarks
+                    const bmStmt = db.prepare(`INSERT INTO bookmarks (url, title, description, thumbnail, created_at, folder_id) VALUES (?, ?, ?, ?, ?, ?)`);
+                    const itemTagStmt = db.prepare(`INSERT OR IGNORE INTO item_tags (item_id, item_type, tag_id) VALUES (?, 'bookmark', ?)`);
 
-            (data.bookmarks || []).forEach(bm => {
-                const fId = bm.folder ? folderMap[bm.folder] : null;
-                bmStmt.run([bm.url, bm.title, bm.description, bm.thumbnail, bm.created_at, fId], function(err) {
-                    if(!err && bm.tags && bm.tags.length > 0) {
-                        const bmId = this.lastID;
-                        bm.tags.forEach(tagName => {
-                            if(tagMap[tagName]) itemTagStmt.run(bmId, tagMap[tagName]);
+                    (data.bookmarks || []).forEach(bm => {
+                        const fId = bm.folder ? folderMap[bm.folder] : null;
+                        bmStmt.run([bm.url, bm.title, bm.description, bm.thumbnail, bm.created_at, fId], function(err) {
+                            if(!err && bm.tags && bm.tags.length > 0) {
+                                const bmId = this.lastID;
+                                bm.tags.forEach(tagName => {
+                                    if(tagMap[tagName]) itemTagStmt.run(bmId, tagMap[tagName]);
+                                });
+                            }
                         });
-                    }
-                });
-            });
-            bmStmt.finalize();
-            // Note: itemTagStmt finalized later or allowed to garbage collect in this scope
+                    });
+                    bmStmt.finalize();
+                    itemTagStmt.finalize();
 
-            // 5. Restore Notes
-            const noteStmt = db.prepare(`INSERT INTO notes (title, content, created_at, folder_id) VALUES (?, ?, ?, ?)`);
-            (data.notes || []).forEach(note => {
-                const fId = note.folder ? folderMap[note.folder] : null;
-                noteStmt.run([note.title, note.content, note.created_at, fId]);
-            });
-            noteStmt.finalize();
+                    // 5. Restore Notes
+                    const noteStmt = db.prepare(`INSERT INTO notes (title, content, created_at, folder_id) VALUES (?, ?, ?, ?)`);
+                    (data.notes || []).forEach(note => {
+                        const fId = note.folder ? folderMap[note.folder] : null;
+                        noteStmt.run([note.title, note.content, note.created_at, fId]);
+                    });
+                    noteStmt.finalize();
 
-            // 6. Restore Tasks & Sessions
-            // We have to nest this slightly to capture lastID for sessions
-            const taskStmt = db.prepare(`INSERT INTO tasks (title, status, due_date, checklist, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)`);
-            const sessionStmt = db.prepare(`INSERT INTO task_sessions (task_id, start_time, end_time) VALUES (?, ?, ?)`);
+                    // 6. Restore Tasks & Sessions
+                    const taskStmt = db.prepare(`INSERT INTO tasks (title, status, due_date, checklist, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)`);
+                    const sessionStmt = db.prepare(`INSERT INTO task_sessions (task_id, start_time, end_time) VALUES (?, ?, ?)`);
 
-            (data.tasks || []).forEach(task => {
-                taskStmt.run([task.title, task.status, task.due_date, task.checklist, task.notes, task.created_at], function(err) {
-                    if(!err && task.sessions && task.sessions.length > 0) {
-                        const taskId = this.lastID;
-                        task.sessions.forEach(sess => {
-                            sessionStmt.run(taskId, sess.start_time, sess.end_time);
+                    (data.tasks || []).forEach(task => {
+                        taskStmt.run([task.title, task.status, task.due_date, task.checklist, task.notes, task.created_at], function(err) {
+                            if(!err && task.sessions && task.sessions.length > 0) {
+                                const taskId = this.lastID;
+                                task.sessions.forEach(sess => {
+                                    sessionStmt.run(taskId, sess.start_time, sess.end_time);
+                                });
+                            }
                         });
-                    }
+                    });
+                    taskStmt.finalize();
+                    sessionStmt.finalize();
+
+                    // COMMIT after all serialized operations complete
+                    db.run("COMMIT", (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
                 });
             });
-            
-            // Finalize statements
-            setTimeout(() => {
-                itemTagStmt.finalize();
-                taskStmt.finalize();
-                sessionStmt.finalize();
-                
-                db.run("COMMIT", (err) => {
-                    if (err) res.status(500).json({ error: "Import Failed during commit." });
-                    else res.json({ message: "Full database import complete." });
-                });
-            }, 1000); // Small delay to ensure async runs inside serialize finish
-
+        }).then(() => {
+            res.json({ message: "Full database import complete." });
         }).catch(err => {
             db.run("ROLLBACK");
             res.status(500).json({ error: err.message });
@@ -758,6 +866,52 @@ app.post('/api/import/database', (req, res) => {
     });
 });
 
+
+/* ================= STATS / ANALYTICS ================= */
+app.get('/api/stats', (req, res) => {
+    const p1 = new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) as total,
+            SUM(CASE WHEN archived=0 THEN 1 ELSE 0 END) as active
+            FROM bookmarks`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+    const p2 = new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) as total,
+            SUM(CASE WHEN status='done' AND archived=0 THEN 1 ELSE 0 END) as done,
+            SUM(CASE WHEN status='todo' AND archived=0 THEN 1 ELSE 0 END) as todo,
+            SUM(CASE WHEN status='inprogress' AND archived=0 THEN 1 ELSE 0 END) as inprogress
+            FROM tasks`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+    const p3 = new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) as total FROM notes WHERE archived=0`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+    // Bookmarks per week (last 8 weeks)
+    const p4 = new Promise((resolve, reject) => {
+        db.all(`SELECT strftime('%Y-W%W', created_at) as week, COUNT(*) as count
+            FROM bookmarks WHERE archived=0 AND created_at >= date('now','-56 days')
+            GROUP BY week ORDER BY week`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+    // Top tags by usage
+    const p5 = new Promise((resolve, reject) => {
+        db.all(`SELECT t.name, COUNT(it.tag_id) as count FROM tags t
+            JOIN item_tags it ON t.id = it.tag_id
+            GROUP BY t.id ORDER BY count DESC LIMIT 10`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+    // Top tasks by time tracked
+    const p6 = new Promise((resolve, reject) => {
+        db.all(`SELECT t.title,
+            COALESCE(SUM(strftime('%s', ts.end_time) - strftime('%s', ts.start_time)), 0) as total_seconds
+            FROM tasks t
+            LEFT JOIN task_sessions ts ON t.id = ts.task_id AND ts.end_time IS NOT NULL
+            WHERE t.archived=0
+            GROUP BY t.id ORDER BY total_seconds DESC LIMIT 8`, [], (err, r) => err ? reject(err) : resolve(r));
+    });
+
+    Promise.all([p1, p2, p3, p4, p5, p6])
+        .then(([bookmarks, tasks, notes, bmByWeek, topTags, topTasks]) => {
+            res.json({ bookmarks, tasks, notes, bmByWeek, topTags, topTasks });
+        })
+        .catch(err => res.status(500).json({ error: err.message }));
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

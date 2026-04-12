@@ -1,9 +1,68 @@
 const API_BASE = 'http://localhost:3000/api';
+
+// --- Utility: HTML escape to prevent XSS ---
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// --- Utility: Safe fetch wrapper with res.ok check ---
+async function apiFetch(url, options = {}) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`API error ${res.status}: ${errBody}`);
+    }
+    return res.json();
+}
+
+// --- Utility: Toast notification system ---
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { success: '&#10003;', error: '&#10007;', info: '&#9432;' };
+    toast.innerHTML = `<span>${icons[type] || icons.info}</span> ${escapeHtml(message)}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// --- Utility: Themed confirm dialog (replaces native confirm) ---
+function showConfirm(message) {
+    return new Promise((resolve) => {
+        const backdrop = document.getElementById('confirm-dialog-backdrop');
+        const msgEl = document.getElementById('confirm-dialog-message');
+        const yesBtn = document.getElementById('confirm-dialog-yes');
+        const cancelBtn = document.getElementById('confirm-dialog-cancel');
+        if (!backdrop || !msgEl) { resolve(confirm(message)); return; }
+
+        msgEl.textContent = message;
+        backdrop.classList.remove('hidden');
+
+        function cleanup(result) {
+            backdrop.classList.add('hidden');
+            yesBtn.removeEventListener('click', onYes);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(result);
+        }
+        function onYes() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+
+        yesBtn.addEventListener('click', onYes);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
 let currentBmView = 'grid'; // Default to grid
 let xPreviewMode = 'compact'; // compact | full
 let currentFolderFilter = null; // null = View All, integer = specific folder ID
 let allBookmarksCache = []; // Stores raw data from API
 let currentSearchTerm = ''; // Stores local search text
+let allTagsCache = []; // Cache of all existing tags for autocomplete
+let bmCollapsedSections = {}; // Tracks which folder sections are collapsed
 let allNotesCache = [];
 let currentNoteFolder = null; // null = All
 let currentNoteSearch = '';
@@ -27,6 +86,14 @@ try {
 /* =================================================================
    INITIALIZATION & CORE NAVIGATION
    ================================================================= */
+
+function toggleSidebarSection(sectionId, titleEl) {
+    const section = document.getElementById(sectionId);
+    const arrow = titleEl.querySelector('.material-icons');
+    const isHidden = section.style.display === 'none';
+    section.style.display = isHidden ? (sectionId === 'sidebar-tags' ? 'flex' : 'block') : 'none';
+    if (arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
 
 function setViewFolder(id, name) {
     currentFolderFilter = id;
@@ -66,16 +133,15 @@ function setViewFolder(id, name) {
         header.textContent = 'Bookmarks';
     }
     
-    // Reload bookmarks to apply the filter
-    loadBookmarks();
+    // Re-render using cached data to apply the filter
+    renderBookmarks();
 }
 
 // Opens the modal and populates it
 async function openTaskModal(taskId) {
     try {
         // Find the full task data from the cache
-        const res = await fetch(`${API_BASE}/tasks`);
-        const tasks = await res.json();
+        const tasks = await apiFetch(`${API_BASE}/tasks`);
         activeTaskData = tasks.find(t => t.id === taskId);
         
         if (!activeTaskData) {
@@ -180,25 +246,19 @@ async function saveTaskDetails() {
     };
 
     try {
-        await fetch(`${API_BASE}/tasks/${activeTaskData.id}`, {
+        await apiFetch(`${API_BASE}/tasks/${activeTaskData.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
+
         closeTaskModal();
-        loadTasks(); // Refresh the main view
+        loadTasks();
     } catch (err) {
         console.error("Failed to save task details", err);
+        showToast('Failed to save task details', 'error');
     }
 }
-
-// Esc key to close modal
-document.addEventListener('keydown', (e) => {
-    if (e.key === "Escape" && !document.getElementById('task-modal-backdrop').classList.contains('hidden')) {
-        closeTaskModal();
-    }
-});
 
 function changeDashMonth(offset) {
     dashboardDate.setMonth(dashboardDate.getMonth() + offset);
@@ -479,7 +539,7 @@ async function handleTaskNotifyOptionChange(taskId, optionValue) {
 
         const customValue = Number(valueInput);
         if (!Number.isFinite(customValue) || customValue <= 0) {
-            alert('Please enter a valid positive number.');
+            showToast('Please enter a valid positive number.', 'error');
             loadTasks();
             return;
         }
@@ -587,7 +647,7 @@ function setupTaskDragAndDrop() {
 }
 
 async function startTimer(taskId) {
-    await fetch(`${API_BASE}/tasks/${taskId}/timer/start`, { method: 'POST' });
+    await apiFetch(`${API_BASE}/tasks/${taskId}/timer/start`, { method: 'POST' });
 
     const setting = getTaskNotifySetting(taskId);
     if (setting.enabled) {
@@ -600,14 +660,14 @@ async function startTimer(taskId) {
 }
 
 async function stopTimer(taskId, skipReload = false) {
-    await fetch(`${API_BASE}/tasks/${taskId}/timer/stop`, { method: 'POST' });
+    await apiFetch(`${API_BASE}/tasks/${taskId}/timer/stop`, { method: 'POST' });
     delete runningTimerNotificationState[String(taskId)];
     if (!skipReload) loadTasks();
 }
 
 async function resetTimer(taskId) {
-    if(!confirm("Reset timer? This will erase all time logs for this task.")) return;
-    await fetch(`${API_BASE}/tasks/${taskId}/timer/reset`, { method: 'POST' });
+    if(!(await showConfirm("Reset timer? This will erase all time logs for this task."))) return;
+    await apiFetch(`${API_BASE}/tasks/${taskId}/timer/reset`, { method: 'POST' });
     delete runningTimerNotificationState[String(taskId)];
     loadTasks();
 }
@@ -629,17 +689,15 @@ function switchTab(tabName) {
     if (navTarget) navTarget.classList.add('active');
 
     if (tabName === 'dashboard') { loadDashboard(); loadTags(); loadFolders(); }
-    if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); }
+    if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); loadTags(); }
     if (tabName === 'tasks') loadTasks();
-    if (tabName === 'research') { 
-        loadNotes(); 
-        loadNoteFolders();
-    }
+    if (tabName === 'research') { loadNotes(); loadNoteFolders(); }
+    if (tabName === 'archive') loadArchive();
+    if (tabName === 'stats') loadStats();
 }
 async function loadNoteFolders() {
     try {
-        const res = await fetch(`${API_BASE}/folders`);
-        const folders = await res.json();
+        const folders = await apiFetch(`${API_BASE}/folders`);
         
         // 1. Populate Left Sidebar List
         const list = document.getElementById('note-folder-list');
@@ -718,7 +776,7 @@ async function createNewFolderForNotes() {
     const name = prompt("New Folder Name:");
     if (!name) return;
     try {
-        await fetch(`${API_BASE}/folders`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
+        await apiFetch(`${API_BASE}/folders`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
         loadNoteFolders(); // Refresh note folders
         // If we are in dashboard/bookmarks, we might want to refresh those too, but this is enough for now.
     } catch(err) { console.error(err); }
@@ -735,29 +793,32 @@ async function addBookmark() {
     const folderSelect = document.getElementById('bm-folder-select');
     
     const url = urlInput.value.trim();
-    if (!url) return alert("Please enter a URL");
+    if (!url) { showToast("Please enter a URL", "error"); return; }
 
     const payload = {
         url: url,
         title: titleInput.value.trim() || "Fetching title...",
         description: descInput.value.trim(), 
-        tags: tagInput.value.split(',').map(t => t.trim().toLowerCase()),
+        tags: tagInput.value.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0),
         folderId: folderSelect.value
     };
 
     try {
-        await fetch(`${API_BASE}/bookmarks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        await apiFetch(`${API_BASE}/bookmarks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         urlInput.value = ''; titleInput.value = ''; tagInput.value = ''; descInput.value = '';
-        loadBookmarks(); 
+        hideTagDropdown('bm-tag-dropdown');
+        showToast('Bookmark saved!', 'success');
+        loadBookmarks();
         loadTags();
-    } catch (err) { console.error('Error saving bookmark', err); }
+    } catch (err) { console.error('Error saving bookmark', err); showToast('Failed to save bookmark', 'error'); }
 }
 
 async function loadBookmarks() {
     try {
-        const res = await fetch(`${API_BASE}/bookmarks`);
-        allBookmarksCache = await res.json(); // Store in cache
-        renderBookmarks(); // Render using the cache
+        const container = document.getElementById('bookmark-list');
+        if (container && allBookmarksCache.length === 0) container.innerHTML = '<div class="loading-spinner"></div>';
+        allBookmarksCache = await apiFetch(`${API_BASE}/bookmarks`);
+        renderBookmarks();
     } catch (err) { console.error("Failed to load bookmarks", err); }
 }
 function filterBookmarksLocally(query) {
@@ -765,8 +826,9 @@ function filterBookmarksLocally(query) {
     renderBookmarks();
 }
 
-async function editBookmark(bm) {
-    openEditModal(bm);
+function editBookmark(id) {
+    const bm = allBookmarksCache.find(b => b.id === id);
+    if (bm) openEditModal(bm);
 }
 
 function exportDatabase() {
@@ -789,70 +851,97 @@ function exportDatabase() {
         .catch(err => console.error("Export failed:", err));
 }
 
-function importDatabase(input) {
+async function importDatabase(input) {
     const file = input.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const jsonData = JSON.parse(e.target.result);
-            
-            // Basic validation check
+
             if (!jsonData.bookmarks && !jsonData.tasks && !jsonData.notes) {
-                alert("Error: File does not appear to be a valid KarmtracK backup.");
+                showToast("File does not appear to be a valid KarmtracK backup.", "error");
                 return;
             }
 
-            if(confirm("This will merge the backup data into your current database. Continue?")) {
-                fetch('/api/import/database', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(jsonData)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert(data.message || "Import successful!");
-                    // Reload to reflect all new data (folders, tags, tasks, etc)
-                    window.location.reload(); 
-                })
-                .catch(err => alert("Import Error: " + err.message));
+            if(await showConfirm("This will merge the backup data into your current database. Continue?")) {
+                try {
+                    const data = await apiFetch('/api/import/database', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(jsonData)
+                    });
+                    showToast(data.message || "Import successful!", "success");
+                    setTimeout(() => window.location.reload(), 1000);
+                } catch (err) {
+                    showToast("Import Error: " + err.message, "error");
+                }
             }
 
         } catch (err) {
-            alert("Error parsing JSON file: " + err.message);
+            showToast("Error parsing JSON file: " + err.message, "error");
         }
     };
     reader.readAsText(file);
-    
-    // Reset input to allow re-importing same file if needed
-    input.value = ''; 
+    input.value = '';
 }
 
-// Esc key to close modals
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Escape: close modals and confirm dialog
     if (e.key === "Escape") {
-        if (!document.getElementById('task-modal-backdrop').classList.contains('hidden')) {
-            closeTaskModal();
+        const confirmBackdrop = document.getElementById('confirm-dialog-backdrop');
+        if (confirmBackdrop && !confirmBackdrop.classList.contains('hidden')) {
+            document.getElementById('confirm-dialog-cancel').click();
+            return;
         }
         if (!document.getElementById('edit-modal-backdrop').classList.contains('hidden')) {
             closeEditModal();
+            return;
+        }
+        if (!document.getElementById('task-modal-backdrop').classList.contains('hidden')) {
+            closeTaskModal();
+            return;
+        }
+    }
+
+    // Ctrl/Cmd shortcuts (skip if typing in input/textarea/contenteditable)
+    if (e.ctrlKey || e.metaKey) {
+        const tag = document.activeElement?.tagName;
+        const isEditable = document.activeElement?.contentEditable === 'true';
+
+        if (e.key === 'k' || e.key === 'K') {
+            e.preventDefault();
+            const searchInput = document.getElementById('global-search-input');
+            if (searchInput) searchInput.focus();
+            return;
+        }
+
+        // Tab switching: Ctrl+1/2/3/4
+        if (['1','2','3','4'].includes(e.key)) {
+            e.preventDefault();
+            const tabs = ['dashboard', 'bookmarks', 'tasks', 'research'];
+            switchTab(tabs[parseInt(e.key) - 1]);
+            return;
         }
     }
 });
 
 async function deleteBookmark(id) {
-    if(!confirm("Delete this bookmark?")) return;
+    if(!(await showConfirm("Delete this bookmark?"))) return;
     try {
-        await fetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' });
-        loadBookmarks();
+        await apiFetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' });
+        allBookmarksCache = allBookmarksCache.filter(bm => bm.id !== id);
+        showToast('Bookmark deleted', 'success');
+        renderBookmarks();
         loadTags();
-    } catch (err) { console.error('Error deleting', err); }
+    } catch (err) { console.error('Error deleting', err); showToast('Failed to delete bookmark', 'error'); }
 }
 
 function toggleBmView(view) {
     currentBmView = view;
-    loadBookmarks();
+    renderBookmarks();
 }
 
 function updateXPreviewModeButtons() {
@@ -871,7 +960,22 @@ function setXPreviewMode(mode) {
     xPreviewMode = mode === 'full' ? 'full' : 'compact';
     localStorage.setItem('xPreviewMode', xPreviewMode);
     updateXPreviewModeButtons();
-    loadBookmarks();
+    renderBookmarks();
+}
+
+const BM_PAGE_SIZE = 30; // Max items to render per folder section at once
+
+function renderBmPage(container, items, offset) {
+    const slice = items.slice(offset, offset + BM_PAGE_SIZE);
+    slice.forEach(bm => container.appendChild(createBookmarkElement(bm)));
+    const remaining = items.length - offset - BM_PAGE_SIZE;
+    if (remaining > 0) {
+        const btn = document.createElement('button');
+        btn.textContent = `Show ${Math.min(remaining, BM_PAGE_SIZE)} more of ${remaining} remaining...`;
+        btn.style.cssText = 'display:block; width:100%; margin:10px 0; padding:8px; background:#222; color:#aaa; border:1px solid #333; border-radius:4px; cursor:pointer; font-size:13px;';
+        btn.onclick = () => { btn.remove(); renderBmPage(container, items, offset + BM_PAGE_SIZE); };
+        container.appendChild(btn);
+    }
 }
 
 function renderBookmarks() {
@@ -907,7 +1011,7 @@ function renderBookmarks() {
         const folderContainer = document.createElement('div');
         folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
         mainContainer.appendChild(folderContainer);
-        displayData.forEach(bm => folderContainer.appendChild(createBookmarkElement(bm)));
+        renderBmPage(folderContainer, displayData, 0);
     } else {
         // Grouped View
         const groupedByFolder = displayData.reduce((acc, bm) => {
@@ -918,22 +1022,51 @@ function renderBookmarks() {
         }, {});
 
         for (const folderName in groupedByFolder) {
-            const header = document.createElement('h2');
-            header.textContent = folderName;
-            header.style.borderBottom = '1px solid var(--primary-red)';
-            header.style.paddingBottom = '5px';
-            header.style.marginTop = '30px';
-            header.style.color = 'var(--text-white)';
-            header.style.fontSize = '1.2rem';
-            header.style.textTransform = 'uppercase';
+            const isCollapsed = folderName in bmCollapsedSections ? bmCollapsedSections[folderName] : true;
+            const items = groupedByFolder[folderName];
+            const count = items.length;
+            let itemsRendered = false;
+
+            const header = document.createElement('div');
+            header.className = 'bm-section-header';
+            header.innerHTML = `<span>${escapeHtml(folderName)} <span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">(${count})</span></span><span class="bm-section-toggle material-icons${isCollapsed ? ' collapsed' : ''}">expand_more</span>`;
             mainContainer.appendChild(header);
 
             const folderContainer = document.createElement('div');
             folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
             mainContainer.appendChild(folderContainer);
 
-            groupedByFolder[folderName].forEach(bm => {
-                folderContainer.appendChild(createBookmarkElement(bm));
+            if (!isCollapsed) {
+                // Already expanded: render first page immediately
+                renderBmPage(folderContainer, items, 0);
+                itemsRendered = true;
+                folderContainer.style.display = '';
+            } else {
+                // Collapsed: hide container but don't render DOM nodes yet
+                folderContainer.style.display = 'none';
+            }
+
+            header.addEventListener('click', () => {
+                const currentState = folderName in bmCollapsedSections ? bmCollapsedSections[folderName] : true;
+                const collapsed = !currentState;
+                bmCollapsedSections[folderName] = collapsed;
+                const arrow = header.querySelector('.bm-section-toggle');
+                if (collapsed) {
+                    arrow.classList.add('collapsed');
+                    folderContainer.style.display = 'none';
+                } else {
+                    arrow.classList.remove('collapsed');
+                    folderContainer.style.display = '';
+                    // Lazy render: only create DOM nodes on first expand
+                    if (!itemsRendered) {
+                        renderBmPage(folderContainer, items, 0);
+                        itemsRendered = true;
+                    }
+                    // Re-initialize Twitter widgets for newly visible embeds
+                    if (currentBmView === 'grid' && xPreviewMode === 'full') {
+                        renderTwitterWidgets(folderContainer);
+                    }
+                }
             });
         }
     }
@@ -951,22 +1084,25 @@ function createBookmarkElement(bm) {
     const displayUrl = bm.url.replace(/^https?:\/\/(www\.)?/i, '');
     const compactUrl = displayUrl.length > 52 ? `${displayUrl.slice(0, 52)}...` : displayUrl;
     
-    // Tags HTML (Neon Chips)
+    // Tags HTML (Neon Chips) - escaped
     let tagsHtml = '';
     if (bm.tags && bm.tags.length > 0) {
-        tagsHtml = bm.tags.map(t => 
-            `<span style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-right: 4px; display:inline-block; text-transform: uppercase;">#${t}</span>`
+        tagsHtml = bm.tags.map(t =>
+            `<span style="border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-right: 4px; display:inline-block; text-transform: uppercase;">#${escapeHtml(t)}</span>`
         ).join('');
     }
 
-    // Description HTML (Yellow Highlight box)
-    const descHtml = (bm.description && bm.description !== "Pending...") 
-        ? `<div style="margin-top: 10px; font-size: 13px; color: #ffc107; background: rgba(255, 193, 7, 0.1); padding: 8px; border-left: 2px solid #ffc107; font-style: italic;">"${bm.description}"</div>` 
+    // Description HTML (Yellow Highlight box) - escaped
+    const descHtml = (bm.description && bm.description !== "Pending...")
+        ? `<div style="margin-top: 10px; font-size: 13px; color: #ffc107; background: rgba(255, 193, 7, 0.1); padding: 8px; border-left: 2px solid #ffc107; font-style: italic;">"${escapeHtml(bm.description)}"</div>`
         : '';
 
-    // Buttons HTML
+    // Buttons HTML - pass ID instead of full JSON to prevent XSS
+    const pinClass = bm.pinned ? 'pin-btn pinned' : 'pin-btn';
+    const pinIcon = bm.pinned ? '&#9733;' : '&#9734;';
     const buttonsHtml = `
-        <button onclick='editBookmark(${JSON.stringify(bm)})' style="font-size:10px; color:black; background:white; border:none; padding:4px 8px; border-radius:2px; margin-right:5px;">EDIT</button>
+        <button class="${pinClass}" onclick="event.stopPropagation(); togglePin('bookmark', ${bm.id})" title="Pin">${pinIcon}</button>
+        <button onclick="editBookmark(${bm.id})" style="font-size:10px; color:black; background:white; border:none; padding:4px 8px; border-radius:2px; margin-right:5px;">EDIT</button>
         <button onclick="deleteBookmark(${bm.id})" style="font-size:10px; color:white; background:var(--primary-red); border:none; padding:4px 8px; border-radius:2px;">DEL</button>
     `;
 
@@ -990,13 +1126,14 @@ function createBookmarkElement(bm) {
                     </a>`;
             }
         } else if (bm.thumbnail) {
-            mediaHtml = `<img src="${bm.thumbnail}" style="width:100%; height:auto; display:block; border-radius:4px; margin-bottom:10px; object-fit: cover; opacity: 0.9;" onerror="this.style.display='none'">`;
+            const proxiedSrc = `/api/proxy-image?url=${encodeURIComponent(bm.thumbnail)}`;
+            mediaHtml = `<img src="${proxiedSrc}" loading="lazy" style="width:100%; height:160px; display:block; border-radius:4px; margin-bottom:10px; object-fit: cover; opacity: 0.9;" onerror="this.style.display='none'">`;
         }
         
         div.innerHTML = `
             ${mediaHtml}
             <h4 style="margin:0 0 5px 0; word-break: break-word; line-height: 1.4; font-size: 1rem;">
-                <a href="${bm.url}" target="_blank" style="text-decoration:none;">${bm.title}</a>
+                <a href="${escapeHtml(bm.url)}" target="_blank" style="text-decoration:none;">${escapeHtml(bm.title)}</a>
             </h4>
             ${descHtml}
             <div class="bm-meta-row">
@@ -1013,8 +1150,8 @@ function createBookmarkElement(bm) {
         
         div.innerHTML = `
             <div style="flex: 1; overflow: hidden; margin-right: 15px;">
-                <a href="${bm.url}" target="_blank" class="bm-title-link" style="text-decoration:none; font-weight:bold; font-size: 1.1rem; color: white;">${bm.title}</a>
-                <div class="bm-url-line" style="font-size:12px; color:#666; margin-top:2px;" title="${bm.url}">${bm.url}</div>
+                <a href="${escapeHtml(bm.url)}" target="_blank" class="bm-title-link" style="text-decoration:none; font-weight:bold; font-size: 1.1rem; color: white;">${escapeHtml(bm.title)}</a>
+                <div class="bm-url-line" style="font-size:12px; color:#666; margin-top:2px;" title="${escapeHtml(bm.url)}">${escapeHtml(bm.url)}</div>
                 ${descHtml}
                 <div style="margin-top:8px;">${tagsHtml}</div>
             </div>
@@ -1025,11 +1162,11 @@ function createBookmarkElement(bm) {
     return div;
 }
 
-function renderTwitterWidgets() {
+function renderTwitterWidgets(container) {
     if (window.twttr && window.twttr.widgets) {
-        window.twttr.widgets.load();
+        window.twttr.widgets.load(container || document);
     } else {
-        setTimeout(renderTwitterWidgets, 500);
+        setTimeout(() => renderTwitterWidgets(container), 500);
     }
 }
 
@@ -1040,8 +1177,7 @@ function renderTwitterWidgets() {
 
 async function loadFolders() {
     try {
-        const res = await fetch(`${API_BASE}/folders`);
-        const folders = await res.json();
+        const folders = await apiFetch(`${API_BASE}/folders`);
         
         // 1. Update Dropdown
         const selectDropdown = document.getElementById('bm-folder-select');
@@ -1120,8 +1256,7 @@ async function createNewFolder() {
     const folderName = prompt("Enter new folder name:");
     if (folderName && folderName.trim() !== "") {
         try {
-            const res = await fetch(`${API_BASE}/folders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName.trim() }) });
-            const newFolder = await res.json();
+            const newFolder = await apiFetch(`${API_BASE}/folders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName.trim() }) });
             await loadFolders(); // Refresh lists
             document.getElementById('bm-folder-select').value = newFolder.id;
         } catch (err) { console.error("Failed to create folder", err); }
@@ -1131,10 +1266,11 @@ async function createNewFolder() {
 }
 
 async function deleteFolder(id, name) {
-    if (!confirm(`WARNING: Are you SURE you want to delete the "${name}" folder?\n\nThis will permanently delete:\n- All Bookmarks in this folder\n- All Notes in this folder`)) return;
+    if (!(await showConfirm(`WARNING: Delete the "${name}" folder? This will permanently delete all Bookmarks and Notes in this folder.`))) return;
     
     try {
-        await fetch(`${API_BASE}/folders/${id}`, { method: 'DELETE' });
+        await apiFetch(`${API_BASE}/folders/${id}`, { method: 'DELETE' });
+        showToast(`Folder "${name}" deleted`, 'success');
         
         // 1. Refresh Bookmark Views
         loadFolders(); 
@@ -1159,13 +1295,80 @@ async function deleteFolder(id, name) {
 
 
 /* =================================================================
+   TAG AUTOCOMPLETE HELPERS
+   ================================================================= */
+
+function getCurrentTagsFromInput(inputId) {
+    const val = document.getElementById(inputId).value;
+    return val.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
+}
+
+function showTagDropdown(dropdownId, inputId) {
+    filterTagDropdown(dropdownId, inputId);
+}
+
+function hideTagDropdown(dropdownId) {
+    const dd = document.getElementById(dropdownId);
+    if (dd) { dd.classList.remove('visible'); }
+}
+
+function filterTagDropdown(dropdownId, inputId) {
+    const dd = document.getElementById(dropdownId);
+    const input = document.getElementById(inputId);
+    if (!dd || !input) return;
+
+    // Get the last tag fragment being typed (after last comma)
+    const rawVal = input.value;
+    const parts = rawVal.split(',');
+    const currentFragment = parts[parts.length - 1].trim().toLowerCase();
+
+    const alreadyAdded = getCurrentTagsFromInput(inputId);
+
+    // Filter tags: match fragment, exclude already-fully-added ones
+    const matching = allTagsCache.filter(tag => {
+        if (currentFragment.length > 0) return tag.includes(currentFragment);
+        return true;
+    });
+
+    if (matching.length === 0) {
+        hideTagDropdown(dropdownId);
+        return;
+    }
+
+    dd.innerHTML = '';
+    matching.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-option' + (alreadyAdded.includes(tag) ? ' already-added' : '');
+        chip.textContent = '#' + tag;
+        if (!alreadyAdded.includes(tag)) {
+            chip.onclick = () => {
+                // Replace the last fragment with this tag + comma
+                const existingParts = input.value.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                // Remove the last partial fragment
+                if (existingParts.length > 0 && tag.startsWith(existingParts[existingParts.length - 1].toLowerCase())) {
+                    existingParts[existingParts.length - 1] = tag;
+                } else {
+                    existingParts.push(tag);
+                }
+                input.value = existingParts.join(', ') + ', ';
+                input.focus();
+                filterTagDropdown(dropdownId, inputId);
+            };
+        }
+        dd.appendChild(chip);
+    });
+
+    dd.classList.add('visible');
+}
+
+/* =================================================================
    TAGS
    ================================================================= */
 
 async function loadTags() {
     try {
-        const res = await fetch(`${API_BASE}/tags`);
-        const tags = await res.json();
+        const tags = await apiFetch(`${API_BASE}/tags`);
+        allTagsCache = tags.map(t => t.name); // Update autocomplete cache
         const container = document.getElementById('sidebar-tags');
         container.innerHTML = '';
         tags.forEach(tag => {
@@ -1200,9 +1403,10 @@ async function loadTags() {
 }
 
 async function deleteTag(id, name) {
-    if(!confirm(`Warning: Deleting tag "${name}" will remove it from ALL items. Proceed?`)) return;
+    if(!(await showConfirm(`Deleting tag "${name}" will remove it from ALL items. Proceed?`))) return;
     try {
-        await fetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
+        await apiFetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
+        showToast(`Tag "${name}" deleted`, 'success');
         loadTags();
         if(document.getElementById('view-bookmarks').classList.contains('active')) {
             loadBookmarks();
@@ -1217,8 +1421,9 @@ async function deleteTag(id, name) {
 
 async function loadTasks() {
     try {
-        const res = await fetch(`${API_BASE}/tasks`);
-        const tasks = await res.json();
+        const todoEl = document.getElementById('task-list-todo');
+        if (todoEl && todoEl.innerHTML === '') todoEl.innerHTML = '<div class="loading-spinner"></div>';
+        const tasks = await apiFetch(`${API_BASE}/tasks`);
         renderTasks(tasks);
         renderCalendarPreview(tasks);
     } catch (err) { console.error('Failed to load tasks', err); }
@@ -1228,23 +1433,25 @@ async function addTask() {
     const input = document.getElementById('new-task-input');
     const title = input.value.trim();
     if (!title) return;
-    await fetch(`${API_BASE}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, status: 'todo' }) });
+    await apiFetch(`${API_BASE}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title, status: 'todo' }) });
     input.value = '';
+    showToast('Task created!', 'success');
     loadTasks();
 }
 
 async function deleteTask(id) {
-    if (!confirm("Are you sure you want to delete this task?")) return;
+    if (!(await showConfirm("Are you sure you want to delete this task?"))) return;
     try {
-        await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+        await apiFetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+        showToast('Task deleted', 'success');
         loadTasks();
-    } catch (err) { console.error("Failed to delete task", err); }
+    } catch (err) { console.error("Failed to delete task", err); showToast('Failed to delete task', 'error'); }
 }
 
 async function editTaskTitle(id, currentTitle) {
     const newTitle = prompt("Enter new task title:", currentTitle);
     if (newTitle && newTitle.trim() !== "") {
-        await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle.trim() }) });
+        await apiFetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle.trim() }) });
         loadTasks();
     }
 }
@@ -1256,12 +1463,12 @@ async function updateTaskStatus(id, newStatus, skipReload = false) {
         await stopTimer(id, true);
     }
 
-    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+    await apiFetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
     if (!skipReload) loadTasks();
 }
 async function updateTaskDate(id, dateStr) {
     if(!dateStr) return;
-    await fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_date: dateStr }) });
+    await apiFetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ due_date: dateStr }) });
     loadTasks();
 }
 
@@ -1407,11 +1614,14 @@ function renderTasks(tasks) {
         } catch (e) { }
 
         const safeTitle = JSON.stringify(task.title || '');
+        const taskPinClass = task.pinned ? 'pin-btn pinned' : 'pin-btn';
+        const taskPinIcon = task.pinned ? '&#9733;' : '&#9734;';
 
         card.innerHTML = `
             <div class="task-head">
-                <div class="task-title" style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${task.title}</div>
+                <div class="task-title" style="font-weight:bold; font-size:15px; margin-bottom:5px; color:white;">${escapeHtml(task.title)}</div>
                 <div class="task-actions" style="font-size:12px; white-space:nowrap;">
+                    <button class="${taskPinClass}" onclick="event.stopPropagation(); togglePin('task', ${task.id})" title="Pin">${taskPinIcon}</button>
                     <button onclick='event.stopPropagation(); editTaskTitle(${task.id}, ${safeTitle})' style="border:none;background:none;cursor:pointer; opacity:0.5; color:white;">&#9998;</button>
                     <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="border:none;background:none;cursor:pointer;color:var(--primary-red); opacity:0.8;">&times;</button>
                 </div>
@@ -1511,8 +1721,7 @@ let saveTimer = null;
 
 async function loadNotes() {
     try {
-        const res = await fetch(`${API_BASE}/notes`);
-        allNotesCache = await res.json();
+        allNotesCache = await apiFetch(`${API_BASE}/notes`);
         renderNotesList();
     } catch (err) { console.error(err); }
 }
@@ -1565,7 +1774,7 @@ function renderNotesList() {
         li.onmouseout = () => { if(activeNoteId !== note.id) li.style.background = 'transparent'; };
         
         li.innerHTML = `
-            <div style="font-weight:600; font-size:14px;">${note.title || 'Untitled'}</div>
+            <div style="font-weight:600; font-size:14px;">${escapeHtml(note.title || 'Untitled')}</div>
             <div style="font-size:11px; color:#666; margin-top:4px;">
                 ${new Date(note.created_at).toLocaleDateString()}
             </div>
@@ -1581,16 +1790,15 @@ async function createNewNote() {
     const targetFolder = currentNoteFolder; 
     
     try {
-        const res = await fetch(`${API_BASE}/notes`, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ 
-                title: 'Untitled Note', 
+        const data = await apiFetch(`${API_BASE}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: 'Untitled Note',
                 content: '',
-                folderId: targetFolder 
-            }) 
+                folderId: targetFolder
+            })
         });
-        const data = await res.json();
         
         // Reload list and open the new note
         await loadNotes(); 
@@ -1602,13 +1810,13 @@ async function openNote(id) {
     activeNoteId = id;
     
     // 1. Fetch details
-    const res = await fetch(`${API_BASE}/notes/${id}`);
-    const note = await res.json();
+    const note = await apiFetch(`${API_BASE}/notes/${id}`);
     
     // 2. Populate Editor
     document.getElementById('note-title-input').value = note.title || '';
-    document.getElementById('note-editor').innerHTML = note.content || '';
-    
+    document.getElementById('note-editor').value = note.content || '';
+    renderMarkdownPreview();
+
     // 3. Set Folder Dropdown
     const folderSelect = document.getElementById('note-folder-select');
     folderSelect.value = note.folder_id || ""; // Select the correct folder or "Uncategorized"
@@ -1619,12 +1827,13 @@ async function openNote(id) {
 
 async function deleteNote() {
     if (!activeNoteId) return;
-    if (!confirm("Are you sure you want to delete this note permanently?")) return;
+    if (!(await showConfirm("Are you sure you want to delete this note permanently?"))) return;
 
     try {
-        await fetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'DELETE' });
+        await apiFetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'DELETE' });
+        showToast('Note deleted', 'success');
         document.getElementById('note-title-input').value = '';
-        document.getElementById('note-editor').innerHTML = '';
+        document.getElementById('note-editor').value = '';
         activeNoteId = null;
         loadNotes();
     } catch (err) { console.error("Failed to delete note", err); }
@@ -1634,14 +1843,14 @@ async function saveCurrentNote() {
     if (!activeNoteId) return;
     
     const title = document.getElementById('note-title-input').value;
-    const content = document.getElementById('note-editor').innerHTML;
-    const folderId = document.getElementById('note-folder-select').value; // Get selected folder
+    const content = document.getElementById('note-editor').value;
+    const folderId = document.getElementById('note-folder-select').value;
 
     try {
-        await fetch(`${API_BASE}/notes/${activeNoteId}`, { 
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ title, content, folderId }) 
+        await apiFetch(`${API_BASE}/notes/${activeNoteId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, folderId })
         });
         
         // Visual Feedback
@@ -1668,9 +1877,7 @@ function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(sav
    ================================================================= */
 
 async function loadDashboard() {
-    const [resTasks, resBms] = await Promise.all([fetch(`${API_BASE}/tasks`), fetch(`${API_BASE}/bookmarks`)]);
-    const tasks = await resTasks.json();
-    const bookmarks = await resBms.json();
+    const [tasks, bookmarks] = await Promise.all([apiFetch(`${API_BASE}/tasks`), apiFetch(`${API_BASE}/bookmarks`)]);
 
     document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length}`;
     document.getElementById('dash-bm-count').innerText = `${bookmarks.length}`;
@@ -1746,16 +1953,14 @@ function performSearch(query) {
         document.getElementById('view-search').classList.add('active');
         document.querySelectorAll('.sidebar li').forEach(el => el.classList.remove('active'));
         try {
-            const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-            const results = await res.json();
-            renderSearchResults(results, query);
+            await performFilteredSearch(query);
         } catch (err) { console.error(err); }
     }, 300); 
 }
 
 function renderSearchResults(results, query) {
     const container = document.getElementById('search-results-container');
-    container.innerHTML = `<p style="color: #aaa; margin-bottom: 20px;">Found ${results.length} fragments matching "<strong>${query}</strong>"</p>`;
+    container.innerHTML = `<p style="color: #aaa; margin-bottom: 20px;">Found ${results.length} fragments matching "<strong>${escapeHtml(query)}</strong>"</p>`;
     
     if (results.length === 0) return;
     
@@ -1786,9 +1991,9 @@ function renderSearchResults(results, query) {
         div.onmouseout = () => { div.style.transform = 'translateX(0)'; div.style.background = '#1a1a1a'; };
 
         div.innerHTML = `
-            <div style="font-weight:bold; font-size:18px; color: white;">${icon} ${item.title}</div>
+            <div style="font-weight:bold; font-size:18px; color: white;">${icon} ${escapeHtml(item.title)}</div>
             <div style="color:#888; font-size:12px; margin-top:5px; text-transform: uppercase; letter-spacing: 1px;">
-                Type: <span style="color:${typeColor}">${item.type}</span> | ${item.info || ''}
+                Type: <span style="color:${typeColor}">${escapeHtml(item.type)}</span> | ${escapeHtml(item.info || '')}
             </div>`;
             
         div.onclick = () => {
@@ -1801,58 +2006,6 @@ function renderSearchResults(results, query) {
     container.appendChild(list);
 }
 
-function getTypeColor(type) {
-    if(type === 'bookmark') return '#007bff';
-    if(type === 'task') return '#28a745';
-    if(type === 'note') return '#ffc107';
-    return '#ccc';
-}
-
-/* ================= CSV IMPORT / EXPORT ================= */
-
-function exportBookmarks() {
-    window.location.href = `${API_BASE}/export/bookmarks`;
-}
-
-async function importBookmarks(inputElement) {
-    const file = inputElement.files[0];
-    if (!file) return;
-
-    if (!confirm("Import bookmarks from CSV? \n\nNote: Duplicate URLs might be added. Existing data will NOT be deleted.")) {
-        inputElement.value = ''; // Reset
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const csvContent = e.target.result;
-        
-        try {
-            const res = await fetch(`${API_BASE}/import/bookmarks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ csvData: csvContent })
-            });
-            
-            const result = await res.json();
-            alert("Import started! It may take a few seconds to organize folders and tags. The list will refresh automatically.");
-            
-            // Wait a moment for DB to churn then refresh
-            setTimeout(() => {
-                loadFolders(); // In case new folders were created
-                loadTags();    // In case new tags were created
-                loadBookmarks();
-            }, 1500);
-
-        } catch (err) {
-            console.error(err);
-            alert("Error importing CSV.");
-        }
-    };
-    
-    reader.readAsText(file);
-    inputElement.value = ''; // Reset input so same file can be selected again if needed
-}
 
 /* ================= EDIT BOOKMARK MODAL ================= */
 
@@ -1861,7 +2014,10 @@ function openEditModal(bm) {
     document.getElementById('edit-modal-title-input').value = bm.title || '';
     document.getElementById('edit-modal-desc-input').value = (bm.description && bm.description !== "Pending...") ? bm.description : '';
     document.getElementById('edit-modal-tags-input').value = bm.tags ? bm.tags.join(', ') : '';
+    hideTagDropdown('edit-tag-dropdown');
     document.getElementById('edit-modal-backdrop').classList.remove('hidden');
+    // Ensure tag cache is available for autocomplete
+    if (allTagsCache.length === 0) loadTags();
 }
 
 function closeEditModal() {
@@ -1879,22 +2035,379 @@ async function saveBookmarkChanges() {
     const payload = { 
         title: newTitle, 
         description: newDesc, 
-        tags: newTags.split(',').map(t => t.trim().toLowerCase()) 
+        tags: newTags.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0)
     };
 
     try {
-        await fetch(`${API_BASE}/bookmarks/${activeEditBookmarkId}`, { 
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
+        await apiFetch(`${API_BASE}/bookmarks/${activeEditBookmarkId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
+        showToast('Bookmark updated!', 'success');
+        // Update cache locally — no need to refetch all bookmarks
+        const idx = allBookmarksCache.findIndex(bm => bm.id === activeEditBookmarkId);
+        if (idx !== -1) {
+            allBookmarksCache[idx] = { ...allBookmarksCache[idx], title: newTitle, description: newDesc, tags: payload.tags };
+        }
         closeEditModal();
-        loadBookmarks();
+        renderBookmarks();
         loadTags();
-    } catch (err) { 
-        console.error("Failed to update bookmark", err); 
-        alert("Update failed. Check console for details.");
+    } catch (err) {
+        console.error("Failed to update bookmark", err);
+        showToast("Failed to update bookmark", "error");
     }
 }
 
 
+/* ================= PIN / FAVORITE ================= */
+
+async function togglePin(type, id) {
+    try {
+        await apiFetch(`${API_BASE}/${type}s/${id}/pin`, { method: 'PUT' });
+        if (type === 'bookmark') loadBookmarks();
+        else if (type === 'task') loadTasks();
+    } catch (err) {
+        showToast('Failed to toggle pin', 'error');
+    }
+}
+
+
+/* ================= ARCHIVE ================= */
+
+async function loadArchive() {
+    try {
+        const items = await apiFetch(`${API_BASE}/archive`);
+        const container = document.getElementById('archive-list');
+        container.innerHTML = '';
+
+        if (items.length === 0) {
+            container.innerHTML = '<div style="padding:20px; color:#666; font-style:italic; text-align:center;">Archive is empty. Deleted items will appear here.</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'archive-item';
+
+            const typeColors = { bookmark: 'var(--accent-cyan)', task: 'var(--primary-red)', note: '#ffc107' };
+            div.style.borderLeft = `4px solid ${typeColors[item.type] || '#666'}`;
+
+            div.innerHTML = `
+                <div>
+                    <div style="font-weight:bold; color:white;">${escapeHtml(item.title || 'Untitled')}</div>
+                    <div style="font-size:11px; color:#666; margin-top:4px; text-transform:uppercase;">${escapeHtml(item.type)} &middot; ${new Date(item.created_at).toLocaleDateString()}</div>
+                </div>
+                <div class="archive-actions">
+                    <button onclick="restoreItem('${item.type}', ${item.id})" style="background:var(--accent-cyan); color:black;">Restore</button>
+                    <button onclick="hardDeleteItem('${item.type}', ${item.id})" style="background:var(--primary-red); color:white;">Delete Forever</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch (err) {
+        console.error('Failed to load archive', err);
+    }
+}
+
+async function restoreItem(type, id) {
+    try {
+        await apiFetch(`${API_BASE}/archive/${type}/${id}/restore`, { method: 'POST' });
+        showToast('Item restored!', 'success');
+        loadArchive();
+    } catch (err) {
+        showToast('Failed to restore item', 'error');
+    }
+}
+
+async function hardDeleteItem(type, id) {
+    if (!(await showConfirm('Permanently delete this item? This cannot be undone.'))) return;
+    try {
+        await apiFetch(`${API_BASE}/archive/${type}/${id}`, { method: 'DELETE' });
+        showToast('Permanently deleted', 'success');
+        loadArchive();
+    } catch (err) {
+        showToast('Failed to delete item', 'error');
+    }
+}
+
+
+/* ================= QUICK ADD (Dashboard Widget) ================= */
+
+let quickAddType = 'bookmark';
+
+function switchQuickTab(type, btn) {
+    quickAddType = type;
+    document.querySelectorAll('.quick-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const input = document.getElementById('quick-add-input');
+    const placeholders = { bookmark: 'Paste a URL...', task: 'Enter task title...', note: 'Enter note title...' };
+    input.placeholder = placeholders[type] || 'Enter...';
+    input.focus();
+}
+
+async function quickAdd() {
+    const input = document.getElementById('quick-add-input');
+    const value = input.value.trim();
+    if (!value) { showToast('Please enter something', 'error'); return; }
+
+    try {
+        if (quickAddType === 'bookmark') {
+            await apiFetch(`${API_BASE}/bookmarks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: value, title: 'Fetching title...', tags: [], description: '' })
+            });
+            showToast('Bookmark saved!', 'success');
+        } else if (quickAddType === 'task') {
+            await apiFetch(`${API_BASE}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: value, status: 'todo' })
+            });
+            showToast('Task created!', 'success');
+        } else if (quickAddType === 'note') {
+            await apiFetch(`${API_BASE}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: value, content: '' })
+            });
+            showToast('Note created!', 'success');
+        }
+        input.value = '';
+        loadDashboard();
+    } catch (err) {
+        showToast('Failed to add item', 'error');
+    }
+}
+
+
+/* ================= SEARCH FILTERS ================= */
+
+let currentSearchTypeFilter = '';
+
+function setSearchFilter(type, btn) {
+    currentSearchTypeFilter = type;
+    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Re-run the current search with the filter
+    const query = document.getElementById('global-search-input').value;
+    if (query && query.length >= 2) {
+        performFilteredSearch(query);
+    }
+}
+
+async function performFilteredSearch(query) {
+    try {
+        let url = `${API_BASE}/search?q=${encodeURIComponent(query)}`;
+        if (currentSearchTypeFilter) url += `&type=${currentSearchTypeFilter}`;
+        const results = await apiFetch(url);
+        renderSearchResults(results, query);
+    } catch (err) { console.error(err); }
+}
+
+
+/* ================= STATS / ANALYTICS ================= */
+
+let _statsCharts = {};
+
+async function loadStats() {
+    try {
+        document.querySelector('#view-stats .charts-grid').innerHTML = '<div class="loading-spinner" style="grid-column:1/-1"></div>';
+        const data = await apiFetch(`${API_BASE}/stats`);
+        renderStats(data);
+    } catch (err) {
+        showToast('Failed to load stats', 'error');
+    }
+}
+
+function renderStats(data) {
+    // Summary cards
+    document.getElementById('stat-bm-total').textContent = data.bookmarks.active ?? '—';
+    document.getElementById('stat-tasks-done').textContent = data.tasks.done ?? '—';
+    const total = (data.tasks.done || 0) + (data.tasks.todo || 0) + (data.tasks.inprogress || 0);
+    const rate = total > 0 ? Math.round((data.tasks.done / total) * 100) : 0;
+    document.getElementById('stat-completion-rate').textContent = rate + '%';
+    document.getElementById('stat-notes-total').textContent = data.notes.total ?? '—';
+
+    // Destroy old charts to avoid canvas reuse error
+    Object.values(_statsCharts).forEach(c => c.destroy());
+    _statsCharts = {};
+
+    const chartDefaults = {
+        plugins: { legend: { labels: { color: '#a0a0a0', font: { family: 'Space Grotesk' } } } },
+        scales: {
+            x: { ticks: { color: '#666' }, grid: { color: '#222' } },
+            y: { ticks: { color: '#666' }, grid: { color: '#222' }, beginAtZero: true }
+        }
+    };
+
+    // 1. Bookmarks by week
+    const bmWeekCtx = document.getElementById('chart-bm-weekly');
+    if (bmWeekCtx) {
+        bmWeekCtx.parentElement.innerHTML = '<h4>Bookmarks Added (Last 8 Weeks)</h4><canvas id="chart-bm-weekly" height="160"></canvas>';
+        _statsCharts.bmWeekly = new Chart(document.getElementById('chart-bm-weekly'), {
+            type: 'bar',
+            data: {
+                labels: data.bmByWeek.map(r => r.week),
+                datasets: [{ label: 'Bookmarks', data: data.bmByWeek.map(r => r.count), backgroundColor: 'rgba(5,217,232,0.5)', borderColor: '#05d9e8', borderWidth: 1 }]
+            },
+            options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+        });
+    }
+
+    // 2. Task status doughnut
+    const taskCtx = document.getElementById('chart-tasks-status');
+    if (taskCtx) {
+        taskCtx.parentElement.innerHTML = '<h4>Task Status Breakdown</h4><canvas id="chart-tasks-status" height="160"></canvas>';
+        _statsCharts.taskStatus = new Chart(document.getElementById('chart-tasks-status'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Done', 'In Progress', 'Todo'],
+                datasets: [{ data: [data.tasks.done, data.tasks.inprogress, data.tasks.todo], backgroundColor: ['#ff2a6d', '#ffc107', '#444'], borderColor: '#1a1a1a', borderWidth: 3 }]
+            },
+            options: { plugins: { legend: { labels: { color: '#a0a0a0', font: { family: 'Space Grotesk' } } } }, cutout: '65%' }
+        });
+    }
+
+    // 3. Top tags bar
+    const tagCtx = document.getElementById('chart-top-tags');
+    if (tagCtx) {
+        tagCtx.parentElement.innerHTML = '<h4>Top Tags</h4><canvas id="chart-top-tags" height="160"></canvas>';
+        _statsCharts.topTags = new Chart(document.getElementById('chart-top-tags'), {
+            type: 'bar',
+            data: {
+                labels: data.topTags.map(r => '#' + r.name),
+                datasets: [{ label: 'Uses', data: data.topTags.map(r => r.count), backgroundColor: 'rgba(255,42,109,0.5)', borderColor: '#ff2a6d', borderWidth: 1 }]
+            },
+            options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+        });
+    }
+
+    // 4. Top tasks by time tracked
+    const taskTimeCtx = document.getElementById('chart-top-tasks');
+    if (taskTimeCtx) {
+        taskTimeCtx.parentElement.innerHTML = '<h4>Most Tracked Tasks (hours)</h4><canvas id="chart-top-tasks" height="160"></canvas>';
+        _statsCharts.topTasks = new Chart(document.getElementById('chart-top-tasks'), {
+            type: 'bar',
+            data: {
+                labels: data.topTasks.map(r => r.title.length > 20 ? r.title.slice(0, 20) + '…' : r.title),
+                datasets: [{ label: 'Hours', data: data.topTasks.map(r => +(r.total_seconds / 3600).toFixed(2)), backgroundColor: 'rgba(5,217,232,0.35)', borderColor: '#05d9e8', borderWidth: 1 }]
+            },
+            options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+        });
+    }
+}
+
+
+/* ================= BULK OPERATIONS (Bookmarks) ================= */
+
+let bulkSelectedIds = new Set();
+let bulkModeActive = false;
+
+function toggleBulkMode() {
+    bulkModeActive = !bulkModeActive;
+    document.body.classList.toggle('bulk-mode', bulkModeActive);
+    bulkSelectedIds.clear();
+    renderBookmarks();
+    const btn = document.getElementById('bulk-toggle-btn');
+    if (btn) btn.textContent = bulkModeActive ? 'Cancel' : 'Select';
+    showBulkBar();
+}
+
+function showBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    if (!bar) return;
+    bar.classList.toggle('hidden', !bulkModeActive);
+    const countEl = document.getElementById('bulk-count');
+    if (countEl) countEl.textContent = `${bulkSelectedIds.size} selected`;
+}
+
+function hideBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    if (bar) bar.classList.add('hidden');
+}
+
+function toggleBulkSelect(id, checked) {
+    if (checked) bulkSelectedIds.add(id);
+    else bulkSelectedIds.delete(id);
+    showBulkBar();
+    document.querySelectorAll('.bm-item').forEach(el => {
+        const cb = el.querySelector('.select-checkbox');
+        if (cb) el.classList.toggle('selected', cb.checked);
+    });
+}
+
+async function bulkDelete() {
+    if (bulkSelectedIds.size === 0) { showToast('No items selected', 'error'); return; }
+    if (!(await showConfirm(`Archive ${bulkSelectedIds.size} bookmark(s)?`))) return;
+    try {
+        await Promise.all([...bulkSelectedIds].map(id =>
+            apiFetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' })
+        ));
+        showToast(`${bulkSelectedIds.size} bookmarks archived`, 'success');
+        allBookmarksCache = allBookmarksCache.filter(bm => !bulkSelectedIds.has(bm.id));
+        toggleBulkMode();
+    } catch (err) {
+        showToast('Bulk delete failed', 'error');
+    }
+}
+
+
+/* ================= MARKDOWN NOTES ================= */
+
+let noteViewMode = 'edit'; // 'edit' | 'preview' | 'split'
+
+function initMarkdownToolbar() {
+    const toolbar = document.getElementById('note-toolbar');
+    if (!toolbar) return;
+    updateMarkdownToolbar();
+}
+
+function updateMarkdownToolbar() {
+    const toolbar = document.getElementById('note-toolbar');
+    if (!toolbar) return;
+    toolbar.querySelectorAll('button[data-view]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === noteViewMode);
+    });
+    const editor = document.getElementById('note-editor');
+    const preview = document.getElementById('note-preview');
+    if (!editor || !preview) return;
+    if (noteViewMode === 'edit') {
+        editor.style.display = 'block';
+        preview.style.display = 'none';
+    } else if (noteViewMode === 'preview') {
+        editor.style.display = 'none';
+        preview.style.display = 'block';
+        renderMarkdownPreview();
+    } else {
+        editor.style.display = 'block';
+        preview.style.display = 'block';
+        preview.style.flex = '1';
+        editor.style.flex = '1';
+        renderMarkdownPreview();
+    }
+}
+
+function setNoteViewMode(mode) {
+    noteViewMode = mode;
+    updateMarkdownToolbar();
+}
+
+function renderMarkdownPreview() {
+    const editor = document.getElementById('note-editor');
+    const preview = document.getElementById('note-preview');
+    if (!editor || !preview || typeof marked === 'undefined') return;
+    const text = editor.value || editor.innerText || '';
+    preview.innerHTML = marked.parse(text);
+}
+
+// Auto-update preview while typing
+function onNoteEditorInput() {
+    triggerAutoSave();
+    if (noteViewMode === 'preview' || noteViewMode === 'split') {
+        renderMarkdownPreview();
+    }
+}
