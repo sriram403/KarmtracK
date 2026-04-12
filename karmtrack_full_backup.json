@@ -1,0 +1,1555 @@
+{
+  "version": 1,
+  "timestamp": "2026-04-12T19:21:29.865Z",
+  "folders": [
+    "dummy",
+    "NN",
+    "OCR",
+    "Prompt",
+    "Github Repos",
+    "RAGs",
+    "Audio",
+    "Video",
+    "Learning",
+    "Game",
+    "Image",
+    "Agent",
+    "Visuals",
+    "Finetune"
+  ],
+  "tags": [
+    "asdf",
+    "meme",
+    "jags related",
+    "nn",
+    "visuals",
+    "ocr",
+    "models",
+    "prompts",
+    "repo",
+    "hacking",
+    "rag",
+    "context",
+    "llm",
+    "nvidia",
+    "audio",
+    "video",
+    "cloning",
+    "no gpu",
+    "automation",
+    "image",
+    "project starter",
+    "avatar",
+    "books",
+    "rags",
+    "project_starter",
+    "article",
+    "agent",
+    "youtube"
+  ],
+  "bookmarks": [
+    {
+      "url": "https://x.com/Rainmaker1973/status/2007036600342155274?s=20",
+      "title": "NN Visualization",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 15:58:44",
+      "folder": "NN",
+      "tags": [
+        "nn"
+      ]
+    },
+    {
+      "url": "https://x.com/DataChaz/status/2007917729995780521?s=20",
+      "title": "DeepseekOCR model",
+      "description": "",
+      "thumbnail": "",
+      "created_at": "2026-04-12 15:59:52",
+      "folder": "OCR",
+      "tags": [
+        "ocr",
+        "models"
+      ]
+    },
+    {
+      "url": "https://x.com/EXM7777/status/2008221493357109627?s=20",
+      "title": "List of Image Prompts",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:00:41",
+      "folder": "Prompt",
+      "tags": [
+        "visuals",
+        "prompts"
+      ]
+    },
+    {
+      "url": "https://x.com/PaddlePaddle/status/2007769972194599254?s=20",
+      "title": "PaddleOCR model",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:01:33",
+      "folder": "OCR",
+      "tags": [
+        "ocr",
+        "models"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2008132222599954513?s=20",
+      "title": "Identifier Using name in social media",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:03:24",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2007941579068318206?s=20",
+      "title": "Converted from document to LLM",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:04:20",
+      "folder": "RAGs",
+      "tags": [
+        "rag"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2008303277436489756?s=20",
+      "title": "URL to LLM",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:05:15",
+      "folder": "RAGs",
+      "tags": [
+        "rag",
+        "llm"
+      ]
+    },
+    {
+      "url": "https://x.com/kwindla/status/2008601714392514722?s=20",
+      "title": "Nvidia Transcription model",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:06:08",
+      "folder": "Audio",
+      "tags": [
+        "nvidia"
+      ]
+    },
+    {
+      "url": "https://x.com/huang_chao4969/status/2008547823760130384?s=20",
+      "title": "Video Captioning using AI",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:06:51",
+      "folder": "Video",
+      "tags": [
+        "rag",
+        "video"
+      ]
+    },
+    {
+      "url": "https://x.com/dkare1009/status/2008498813980360763?s=20",
+      "title": "Learning Channels",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:07:30",
+      "folder": "Learning",
+      "tags": [
+        "nn",
+        "llm"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2008659985274896462?s=20",
+      "title": "Open-source tool to track location or mobile number.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:12:49",
+      "folder": "Github Repos",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/Prince_Canuma/status/2008542773180256560?s=20",
+      "title": "voice cloning and it’s pretty fast",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:13:39",
+      "folder": "Audio",
+      "tags": [
+        "cloning"
+      ]
+    },
+    {
+      "url": "https://x.com/aisearchio/status/2008618978198122864?s=20",
+      "title": "AI tutor agent that proactively teaches you.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:15:02",
+      "folder": "Learning",
+      "tags": [
+        "repo",
+        "llm"
+      ]
+    },
+    {
+      "url": "https://x.com/TencentHunyuan/status/2008767390377775124?s=20",
+      "title": "world generation",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:16:43",
+      "folder": "Game",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2009006726906040724?s=20",
+      "title": "Generative AI, without a GPU",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:23:28",
+      "folder": "Image",
+      "tags": [
+        "repo",
+        "no gpu"
+      ]
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2009260657024131293?s=20",
+      "title": "desktop automation agent",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:24:06",
+      "folder": "Agent",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2009181591117963285?s=20",
+      "title": "Anonymizes faces in videos and photos",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:25:09",
+      "folder": "Image",
+      "tags": [
+        "repo",
+        "video",
+        "image"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2009199376250622245?s=20",
+      "title": "Unlock Netflix vibes with torrents",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:26:13",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2009422157290283112?s=20",
+      "title": "Swaps faces in video streams",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:26:41",
+      "folder": "Video",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/hasantoxr/status/2009309261705449798?s=20",
+      "title": "Best GitHub Repos to Learn AI From Scratch in 2026",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:27:09",
+      "folder": "Learning",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/IterIntellectus/status/2009605453073072422?s=20",
+      "title": "decoding all animal communication",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:28:49",
+      "folder": "Visuals",
+      "tags": [
+        "visuals"
+      ]
+    },
+    {
+      "url": "https://x.com/aisearchio/status/2009726855381930045?s=20",
+      "title": "realtime interactive avatars.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:29:39",
+      "folder": "Video",
+      "tags": [
+        "repo",
+        "avatar"
+      ]
+    },
+    {
+      "url": "https://x.com/PhilosophyOfPhy/status/2009299557989892355?s=20",
+      "title": "For People Who Hate Math",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:30:10",
+      "folder": "Learning",
+      "tags": [
+        "books"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2010454562818367895?s=20",
+      "title": "Neural Network Visualizer",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:30:42",
+      "folder": "Visuals",
+      "tags": [
+        "nn",
+        "visuals",
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/0x0SojalSec/status/2010040627397050469?s=20",
+      "title": "every Machine Learning Algorithm from scratch",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:31:15",
+      "folder": "Learning",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2010377268804366785?s=20",
+      "title": "powerful document parsing",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:32:11",
+      "folder": "OCR",
+      "tags": [
+        "ocr",
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/huang_chao4969/status/2010652818189983944?s=20",
+      "title": "AI co-scientists",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:34:04",
+      "folder": "Agent",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/Tawakkalah13_10/status/2010715179001299321?s=20",
+      "title": "AI & ML 40 Projects List",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:34:57",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/kyutai_labs/status/2011047335892303875?s=20",
+      "title": "text-to-speech model with high-quality voice cloning",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:35:49",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/AlternativeTo/status/2011535412649427058?s=20",
+      "title": "Streams torrents instantly with a Netflix-like interface",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:36:49",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2011765479795540009?s=20",
+      "title": "LangExtract Python library",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:37:27",
+      "folder": "RAGs",
+      "tags": [
+        "repo",
+        "rags"
+      ]
+    },
+    {
+      "url": "https://x.com/LiorOnAI/status/2012133013967044755?s=20",
+      "title": "human voice in real time",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:37:54",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2012107908868174000?s=20",
+      "title": "Offline OCR using DeepSeek-OCR AI",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:38:35",
+      "folder": "OCR",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/DailyDoseOfDS_/status/2011732616173797861?s=20",
+      "title": "neural network architecture drawings",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:39:31",
+      "folder": "Visuals",
+      "tags": [
+        "repo",
+        "project_starter"
+      ]
+    },
+    {
+      "url": "https://x.com/chrisman/status/2011879000394907871?s=20",
+      "title": "Teaching style is Socratic",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:40:08",
+      "folder": "Learning",
+      "tags": [
+        "project_starter"
+      ]
+    },
+    {
+      "url": "https://x.com/SciencNews/status/2011963976310051284?s=20",
+      "title": "How to Read a Paper",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:40:27",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/paulabartabajo_/status/2012118262734074267?s=20",
+      "title": "Real-time video captions",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:40:57",
+      "folder": "Video",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/DAIEvolutionHub/status/2011726631493386495?s=20",
+      "title": "Best GitHub Repos to Learn AI From Scratch in 2026",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:41:45",
+      "folder": "Learning",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2012479051156300144?s=20",
+      "title": "Transcribes YouTube videos",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:43:07",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/DeRonin_/status/2033587293064204349?s=20",
+      "title": "resources to become AI engineer",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:43:38",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/RodmanAi/status/2042645953807868398?s=20",
+      "title": "PDFs → clean Markdown",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:45:05",
+      "folder": "OCR",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/defileo/status/2042241063612502162?s=20",
+      "title": "clause + Obsidian",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:45:53",
+      "folder": "RAGs",
+      "tags": [
+        "article"
+      ]
+    },
+    {
+      "url": "https://x.com/AlphaSignalAI/status/2041894262552310266?s=20",
+      "title": "removed the vector database from RAG",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:46:51",
+      "folder": "RAGs",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/dr_cintas/status/2041921473900650558?s=20",
+      "title": "fine-tune Gemma 4",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:47:49",
+      "folder": "Finetune",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/socialwithaayan/status/2041192946369007924?s=20",
+      "title": "One command. Any folder. Full knowledge graph.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:48:46",
+      "folder": "RAGs",
+      "tags": [
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/om_patel5/status/2041035711063732460?s=20",
+      "title": "TEACH CLAUDE TO TALK LIKE A CAVEMAN TO SAVE TOKENS",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:49:20",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/AlphaSignalAI/status/2040761699116917148?s=20",
+      "title": "Chinese model just dethroned Gemini at reading documents",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:49:54",
+      "folder": "OCR",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/oliviscusAI/status/2040471323059667419?s=20",
+      "title": "This tool can download literally anything from link",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:50:33",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/filiksyos/status/2039364035494215847?s=20",
+      "title": "Reverse engineer any repo into it's original prompt",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:51:02",
+      "folder": "Prompt",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2039002555200700908?s=20",
+      "title": "You record your screen. It automatically transforms it into a polished, professional demo video.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:51:48",
+      "folder": "Video",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/oliviscusAI/status/2038933614658797588?s=20",
+      "title": "you can now literally ctrl+f your video footage",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:52:15",
+      "folder": "Video",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/dr_cintas/status/2038660653410320556?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:52:42",
+      "folder": "Video",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/dr_cintas/status/2038660653410320556?s=20",
+      "title": "most complete Claude Code setup that exists right now",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:58:37",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/suni_code/status/2038172096879382593?s=20",
+      "title": "Company wise Interview Questions",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 16:59:44",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2038164571593261289?s=20",
+      "title": "Clone any voice from 10 seconds of audio. Generate 90 minutes of multi-speaker conversation. Real-time streaming",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:02:17",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/GithubProjects/status/2037839641215398223?s=20",
+      "title": "Give your ai agent eyes to see the entire internet for free",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:09:40",
+      "folder": "Agent",
+      "tags": [
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/techNmak/status/2037788648691884207?s=20",
+      "title": "documented how to actually use Claude Code",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:10:21",
+      "folder": "Agent",
+      "tags": [
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/vivoplt/status/2037828707730215232?s=20",
+      "title": "Research papers you must read for AI Engineer interviews",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:11:33",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2037575542149357627?s=20",
+      "title": "generates and visualizes complex 3d particle systems just by typing a prompt",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:11:59",
+      "folder": "Visuals",
+      "tags": [
+        "visuals"
+      ]
+    },
+    {
+      "url": "https://x.com/paulabartabajo_/status/2037356500377580030?s=20",
+      "title": "Most voice assistants send your audio to a server. This one doesn't.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:12:32",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/DavidOndrej1/status/2037519926869585981?s=20",
+      "title": "AutoResearch might be the most important open-source release",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:13:08",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/MistralAI/status/2037183026539483288?s=20",
+      "title": "frontier open-weight model for natural, expressive, and ultra-fast text-to-speech",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:15:19",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/akshay_pachaar/status/2036798654758232516?s=20",
+      "title": "this new OCR model",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:39:55",
+      "folder": "OCR",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2036639233092583589?s=20",
+      "title": "It's called TorchCode. LeetCode, but for PyTorch. 39 problems that test the exact skills top AI labs hire for",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:40:27",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/akshay_pachaar/status/2035341800739877091?s=20",
+      "title": "claude md file",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:40:53",
+      "folder": "Prompt",
+      "tags": [
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/Amank1412/status/2036397517890527329?s=20",
+      "title": "SOMEONE BUILT A SPOTIFY LIKE WEB APP THAT’S COMPLETELY OPEN SOURCE AND AD FREE.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:42:10",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/TechByArti/status/2036414266954358902?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:43:03",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2036499329167286367?s=20",
+      "title": "Transcribes 150 minutes of audio in 98 seconds",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:43:25",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/eng_khairallah1/status/2036352712153911627?s=20",
+      "title": "your own personal intelligence terminal.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:44:13",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking",
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/MillieMarconnni/status/2036363493478375797?s=20",
+      "title": "Claude Code skill that scans Reddit and X from the last 30 days on any topic you give it",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:45:04",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/AI_with_jasmin/status/2036015853221593391?s=20",
+      "title": "Claude can train your brain harder than most professors ever will.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:45:35",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2036295451234984150?s=20",
+      "title": "Build the best AI model under 16MB",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 17:53:59",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/om_patel5/status/2035880075212493193?s=20",
+      "title": "JOB SEARCH WITH AI AGENTS",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:32:20",
+      "folder": "Agent",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/sukh_saroy/status/2035385311833047124?s=20",
+      "title": "Claude Code into a full game development studio",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:33:06",
+      "folder": "Agent",
+      "tags": [
+        "prompts",
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/ihtesham2005/status/2035363332849570211?s=20",
+      "title": "predict exam questions before seeing the syllabus",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:33:40",
+      "folder": "Learning",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/GithubProjects/status/2035076427020959879?s=20",
+      "title": "If you can’t explain it simply, you don’t understand it.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:33:58",
+      "folder": "Learning",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/zodchiii/status/2034924354337714642?s=20",
+      "title": "Top 50 Claude Skills & GitHub  Repos for AI — The Only List You  Need.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:34:16",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/NainsiDwiv50980/status/2035296641637613793?s=20",
+      "title": "They open-sourced a tool that converts literally any file into clean markdown for LLMs in under 60 seconds.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:34:39",
+      "folder": "OCR",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/peholderrieth/status/2034274122763542953?s=20",
+      "title": "MIT Flow Matching and Diffusion Lecture 2026 Released",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:35:06",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2035318024623014019?s=20",
+      "title": "Claude can now build your entire resume and LinkedIn profile",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:35:27",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2034817556733931564?s=20",
+      "title": "Someone just open sourced a computer that works when the entire internet goes down.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:35:48",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2033949558850408787?s=20",
+      "title": "Someone just open-sourced a full suite for tracking satellites and decoding their radio signals locally",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:36:02",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/DataChaz/status/2034624043903766978?s=20",
+      "title": "near-perfect cloning",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:36:27",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/aiwithjainam/status/2034235764394045943?s=20",
+      "title": "TaxHacker a self-hosted AI accounting app that processes receipts and invoices automatically",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:36:56",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/hanouticelina/status/2033942626441810305?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:37:36",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2034034576893612113?s=20",
+      "title": "It watches the entire world. And texts you when something changes.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:37:56",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/sharbel/status/2033921312716882384?s=20",
+      "title": "You've been training Google's AI for 15 years. You had no idea.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:38:17",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/oliviscusAI/status/2033860465760030923?s=20",
+      "title": "tool that converts pdfs to markdown at 100 pages per second.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:38:44",
+      "folder": "OCR",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/UnslothAI/status/2033926272481718523?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:39:01",
+      "folder": "Finetune",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heygurisingh/status/2033483251659231482?s=20",
+      "title": "tool generates entire Minecraft worlds from real-world map data.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:39:26",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/k1rallik/status/2033530122150502482?s=20",
+      "title": "You train robots and don't even know it",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:40:13",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/haildhruv/status/2033551410709815560?s=20",
+      "title": "website where you can create, program and test electronic hardware. it already has some featured projects",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:40:32",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/ChristosTzamos/status/2031845134577406426?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:41:39",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/ihtesham2005/status/2033679744219418710?s=20",
+      "title": "full development methodology for AI coding agents",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:42:43",
+      "folder": "Prompt",
+      "tags": [
+        "repo",
+        "hacking",
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/RoundtableSpace/status/2033562683899871270?s=20",
+      "title": "LuxTTS clones any voice from 3 seconds of audio on a 4GB GPU",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:43:13",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/thisguyknowsai/status/2033476048650928215?s=20",
+      "title": "open sourced a GUI agent that lives inside your webpage and controls it with natural language",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:44:11",
+      "folder": "Agent",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/DataChaz/status/2033584901858202073?s=20",
+      "title": "You pass it a single CLI command with a raw idea, and it completely takes over",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:44:47",
+      "folder": "Agent",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/JoshKale/status/2033012123320672339?s=20",
+      "title": "project scoring every job in America on how likely an AI will replace it from 0-10",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:45:45",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/thisdudelikesAI/status/2032020679827341603?s=20",
+      "title": "headless browser that runs 11x faster than Chrome and uses 9x less memory",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:46:21",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/creatorslop/status/2030992285689860291?s=20",
+      "title": "Claude can now build you a full AI video channel from scratch like a $10K creator consultant",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:46:54",
+      "folder": "Prompt",
+      "tags": [
+        "prompts",
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/tangming2005/status/2031358195558658266?s=20",
+      "title": "Single biggest improvement I made to my CLAUDE.md",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:47:18",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/RoundtableSpace/status/2031033518906810842?s=20",
+      "title": "A GITHUB REPO WITH AN ENTIRE SETUP FOR AN AI AGENCY",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:47:54",
+      "folder": "Prompt",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/hume_ai/status/2031401003078062578?s=20",
+      "title": "speech-language model that generates text and audio in one synchronized stream to reduce token-level hallucinations and improve latency",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:48:35",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/sukh_saroy/status/2030955864966992365?s=20",
+      "title": "the operating system for running a company with zero employees",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:48:56",
+      "folder": "Agent",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/RoundtableSpace/status/2030308743078986013?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:49:41",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2030547151965876544?s=20",
+      "title": "full virtual computer that runs inside your browser",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:49:59",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/ihtesham2005/status/2030214970353602806?s=20",
+      "title": "how to compress a semester of learning into 48 hours",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:50:33",
+      "folder": "Learning",
+      "tags": [
+        "prompts",
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/xmayeth/status/2029943091528950248?s=20",
+      "title": "These are the key formulas I used to make money on Polymarket. $400K a year. If you can apply them, you’ll get rich",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:51:35",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/abxxai/status/2029560600070881577?s=20",
+      "title": "official agent framework and it has everything",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:53:06",
+      "folder": "Agent",
+      "tags": [
+        "prompts",
+        "repo",
+        "hacking",
+        "agent"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2029447020214403237?s=20",
+      "title": "Neuro-sama. And it might be better than the original",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:53:32",
+      "folder": "Agent",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/dr_cintas/status/2029272137488580761?s=20",
+      "title": "llmfit that checks your hardware and tells you which models will run well before you download anything.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:53:54",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/MillieMarconnni/status/2028436636841996451?s=20",
+      "title": "any GitHub repo into an interactive knowledge graph",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:54:33",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/RoundtableSpace/status/2027371891384893836?s=20",
+      "title": "EVERY MILITARY INSTALLATION ON THE PLANET IS NOW LIVE AND SEARCHABLE ON POLYGLOBE",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:55:11",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/Amank1412/status/2026007841321132285?s=20",
+      "title": "startup URL, and the site brutally roasts your landing page calling out vague claims, buzzwords, and overhyped messaging",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:55:52",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/hasantoxr/status/2025902150296236050?s=20",
+      "title": "it scrapes undetectable, adaptive websites without breaking when they update their structure.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:56:33",
+      "folder": "OCR",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/RoundtableSpace/status/2025499553944801662?s=20",
+      "title": "PROMPTS USED TO CREATE EVERY MAJOR AI TOOL",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:57:08",
+      "folder": "Prompt",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2025533164454846629?s=20",
+      "title": "real-time global intelligence dashboard  and open sourced it for free",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:57:43",
+      "folder": "Github Repos",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/srishticodes/status/2025254119636959701?s=20",
+      "title": "t combines all the best practices shared by Claude Code",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:58:20",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/HuggingModels/status/2022995332058251548?s=20",
+      "title": "full-duplex voice model that listens and talks at the same time. No pauses. No turn-taking. Real conversation",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:58:53",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/MistralAI/status/2019068826097213953?s=20",
+      "title": "State-of-the-art transcription, speaker diarization, sub-200ms real-time latency",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:59:22",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/OpenBMB/status/2018741614257307678?s=20",
+      "title": "The model can see, listen, and speak simultaneously in a real-time conversation without mutual blocking",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 18:59:57",
+      "folder": "Agent",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/AmbsdOP/status/2018100058483269994?s=20",
+      "title": "Open-Source Music Gen",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:00:45",
+      "folder": "Audio",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/wildmindai/status/2018458869689954710?s=20",
+      "title": "Transcript-driven talking head editing",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:01:05",
+      "folder": "Video",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/godofprompt/status/2018482335130296381?s=20",
+      "title": "Andrej Karpathy's viral AI coding rant into a system prompt",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:01:30",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/atullchaurasia/status/2017844930086101316?s=20",
+      "title": "Research papers you must read for AI Engineer interviews",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:01:55",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/VishakhRanotra/status/2017537195712909699?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:02:32",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/adithya_s_k/status/2014426458475966649?s=20",
+      "title": "create animations like  @3blue1brown",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:04:48",
+      "folder": "Agent",
+      "tags": [
+        "youtube"
+      ]
+    },
+    {
+      "url": "https://x.com/ArmanHezarkhani/status/2013608521900683765?s=20",
+      "title": "The Complete Guide: How to Become an ML Engineer",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:05:21",
+      "folder": "Learning",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/techNmak/status/2013166373862797479?s=20",
+      "title": "lightweight VLM that beats the giants at OCR",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:05:53",
+      "folder": "OCR",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/godofprompt/status/2012265207335137290?s=20",
+      "title": "Vibe coding without this prompt is a waste of time",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:06:36",
+      "folder": "Prompt",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/ihtesham2005/status/2043358540027564420?s=20",
+      "title": "let an AI browse LinkedIn undetected",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:08:29",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/MisterNoComents/status/2043367626194248081?s=20",
+      "title": "Just 4 steps and 15 minutes of your time",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:10:16",
+      "folder": "Learning",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/oliviscusAI/status/2043282249614037271?s=20",
+      "title": "tool that turns any google maps link into a fully 3d gaussian splat",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-12 19:11:03",
+      "folder": "Game",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "title": "Untitled Note",
+      "content": "dasdfasdf",
+      "created_at": "2026-03-07 09:34:20",
+      "folder": "dummy"
+    },
+    {
+      "title": "Untitled Note",
+      "content": "asdfasdfdxdges",
+      "created_at": "2026-03-07 09:35:08",
+      "folder": "dummy"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "works",
+      "status": "todo",
+      "due_date": "2026-02-16",
+      "checklist": "[]",
+      "notes": "<br><div><div><br></div></div>\n\n<hr><p><em><strong>Completed on:</strong> 7/3/2026, 1:57:20 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>\n\n<hr><p><em><strong>Completed on:</strong> 12/4/2026, 7:30:58 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>",
+      "created_at": "2026-02-06 06:01:14",
+      "sessions": []
+    },
+    {
+      "title": "Gameplay",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": "[]",
+      "notes": "Finishing The Game<div>1. Expedition 33</div>",
+      "created_at": "2026-02-06 06:01:29",
+      "sessions": []
+    },
+    {
+      "title": "knowledge",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": "[]",
+      "notes": "Bank<div>1. Term&nbsp;</div><div>2. Health</div><div>3. ULIP</div><div>4. New Bank Account Type</div>",
+      "created_at": "2026-02-06 06:02:07",
+      "sessions": []
+    },
+    {
+      "title": "Youtube",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:02:16",
+      "sessions": []
+    },
+    {
+      "title": "Sadhguru Exclusive",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": null,
+      "notes": "\n\n<hr><p><em><strong>Completed on:</strong> 7/2/2026, 2:52:01 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>",
+      "created_at": "2026-02-06 06:03:30",
+      "sessions": []
+    },
+    {
+      "title": "Music",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:03:39",
+      "sessions": []
+    },
+    {
+      "title": "GameDev",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 06:03:53",
+      "sessions": []
+    },
+    {
+      "title": "Research",
+      "status": "todo",
+      "due_date": "2026-02-09",
+      "checklist": "[]",
+      "notes": "Agentic coding<div>1. Fix Bugs in this Tool</div><div>2. Upload Bookmarks here and clean the X</div>",
+      "created_at": "2026-02-06 07:23:08",
+      "sessions": []
+    },
+    {
+      "title": "Walk",
+      "status": "todo",
+      "due_date": "2026-02-16",
+      "checklist": null,
+      "notes": null,
+      "created_at": "2026-02-06 10:36:05",
+      "sessions": []
+    },
+    {
+      "title": "Youtube Vid",
+      "status": "todo",
+      "due_date": "2026-02-16",
+      "checklist": "[]",
+      "notes": "",
+      "created_at": "2026-02-06 10:36:18",
+      "sessions": []
+    },
+    {
+      "title": "workout",
+      "status": "todo",
+      "due_date": "2026-03-12",
+      "checklist": "[]",
+      "notes": "<br>",
+      "created_at": "2026-02-23 09:03:21",
+      "sessions": [
+        {
+          "start_time": "2026-02-24 10:16:11",
+          "end_time": "2026-02-24 11:47:24"
+        }
+      ]
+    }
+  ]
+}
