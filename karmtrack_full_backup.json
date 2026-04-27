@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "timestamp": "2026-04-12T19:21:29.865Z",
+  "timestamp": "2026-04-27T18:53:15.700Z",
   "folders": [
     "dummy",
     "NN",
@@ -15,7 +15,9 @@
     "Image",
     "Agent",
     "Visuals",
-    "Finetune"
+    "Finetune",
+    "Tools",
+    "Breakthroughs And Memes"
   ],
   "tags": [
     "asdf",
@@ -1429,6 +1431,340 @@
       "tags": [
         "repo",
         "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2048347422280036801?s=20",
+      "title": "ElevenLabs + Descript stack in one tool",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:30:54",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/MushtaqBilalPhD/status/2048670788883280230?s=20",
+      "title": "Sci-Hub is an evil website that pirated 85M+ research papers and made them freely available",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:31:52",
+      "folder": "Tools",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/sengpt/status/2048421286091604187?s=20",
+      "title": "Hard Problem Solved by model",
+      "description": "A 23-year-old young person has solved one of the Erdős problems unsolved for 60 years using ChatGPT 5.4 Pro.",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:32:47",
+      "folder": "Breakthroughs And Memes",
+      "tags": [
+        "prompts"
+      ]
+    },
+    {
+      "url": "https://x.com/sukh_saroy/status/2047245968727486958?s=20",
+      "title": "A single CLAUDE .md file just hit #1 on GitHub trending",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:33:13",
+      "folder": "Prompt",
+      "tags": [
+        "prompts"
+      ]
+    },
+    {
+      "url": "https://x.com/JonBbC_TechGeek/status/2027540228446069155?s=20",
+      "title": "Tesla FSD in India",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:34:02",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/Piotrovsky_1/status/2028502043363586316?s=20",
+      "title": "cat music",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:34:20",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/klara_sjo/status/2027503760193327145?s=20",
+      "title": "robot doom scrooling",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:35:03",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/Mericamemed/status/2030010531424178684?s=20",
+      "title": "prompt injection to control AI results, nice",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:35:22",
+      "folder": "Breakthroughs And Memes",
+      "tags": [
+        "prompts"
+      ]
+    },
+    {
+      "url": "https://x.com/TeslaAaronL/status/2030056330040594673?s=20",
+      "title": "edge case spotted: Tesla",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:35:47",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/PostsOfSatan/status/2031188798302736452?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:36:03",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/DrPepperBlog/status/2032130239476703436?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:36:12",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/josenocontrole/status/2033635042660868187?s=20",
+      "title": "DLSS 5 OFF",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:36:39",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/mxvdxn/status/2034397448270180506?s=20",
+      "title": "Seedance 2.0",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:36:57",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/interesting_aIl/status/2035952726425674074?s=20",
+      "title": "The most dangerous websites",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:37:20",
+      "folder": "Tools",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/jiratickets/status/2036458865634464131?s=20",
+      "title": "How me and claude “collaborate” on the work I’m paid a salary for",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:37:35",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/rubenhassid/status/2042845103115415581?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:38:21",
+      "folder": "Learning",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2043241480350048274?s=20",
+      "title": "Your brand new Windows laptop came with dozens of apps you never asked for",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:38:45",
+      "folder": "Tools",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/tom_doerr/status/2043074510807597096?s=20",
+      "title": "Runs 405B LLMs on 8GB VRAM",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:39:09",
+      "folder": "Github Repos",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/simplifyinAI/status/2043736422608437415?s=20",
+      "title": "his tool lets you walk inside a 3d scan of a house as if you were actually there.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:39:28",
+      "folder": "Github Repos",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/HuggingModels/status/2044027666324697451?s=20",
+      "title": "Indian Law",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:39:53",
+      "folder": "Finetune",
+      "tags": []
+    },
+    {
+      "url": "https://x.com/TimJayas/status/2047366820026593444?s=20",
+      "title": "Never pay for clipping tools again!",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:40:22",
+      "folder": "Tools",
+      "tags": [
+        "repo"
+      ]
+    },
+    {
+      "url": "https://x.com/dhruvtwt_/status/2047006444701274380?s=20",
+      "title": "@nvidia  is offering around 80 AI models via hosted APIs absolutely for free",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:41:12",
+      "folder": "Learning",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/MillieMarconnni/status/2046500681700503818?s=20",
+      "title": "RIP Higgsfield AI.",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:41:42",
+      "folder": "Image",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/heynavtoor/status/2046148634920853993?s=20",
+      "title": "There is a tool that syncs your files directly between your own devices. No cloud. No server. No middleman. Ever",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:42:50",
+      "folder": "Tools",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/ErickSky/status/2045275182563049937?s=20",
+      "title": "Goodbye ElevenLabs… your FREE AND LOCAL replacement has arrived",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:43:19",
+      "folder": "Audio",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/DAIEvolutionHub/status/2045086522651861469?s=20",
+      "title": "Someone open-sourced an AI tutor that actually adapts to YOU",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:43:41",
+      "folder": "Learning",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/_vmlops/status/2045095124120854957?s=20",
+      "title": "wokwi is a browser simulator for arduino, esp32, and stm32 & it actually works",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:44:09",
+      "folder": "Tools",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/Crypto_QianXun/status/2044944188505284839?s=20",
+      "title": "Someone developed a free resume generator",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:44:26",
+      "folder": "Tools",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/elder_plinius/status/2044458897772306804?s=20",
+      "title": "HOLY SHIT... Someone just dropped a fully liberated Gemma 4 E4B!",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:45:06",
+      "folder": "Finetune",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/AINerdzz/status/2044035388298428631?s=20",
+      "title": "3 Website that feels iilegal to know",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:45:29",
+      "folder": "Tools",
+      "tags": [
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/_avichawla/status/2048697640242868589?s=20",
+      "title": "Fine-tune DeepSeek-OCR on your own language!",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:47:00",
+      "folder": "Finetune",
+      "tags": [
+        "repo",
+        "hacking"
+      ]
+    },
+    {
+      "url": "https://x.com/wsl8297/status/2048613624445600091?s=20",
+      "title": "subtitle",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-04-27 18:47:39",
+      "folder": "Tools",
+      "tags": [
+        "repo"
       ]
     }
   ],

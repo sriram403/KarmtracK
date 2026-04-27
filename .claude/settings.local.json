@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls d:/mine/NoteKeeper/*.js d:/mine/NoteKeeper/server*)",
+      "Bash(npx kill-port:*)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:3000/api/bookmarks)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); d.slice\\(0,10\\).forEach\\(b=>console.log\\(b.id, JSON.stringify\\(b.thumbnail\\).slice\\(0,80\\), b.title.slice\\(0,40\\)\\)\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/bookmarks\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(b['id'], repr\\(b.get\\('thumbnail',''\\)\\)[:80], b['title'][:40]\\) for b in data[:10]]\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 20668 /F)",
+      "Bash(cmd /c \"taskkill /PID 20668 /F\")",
+      "Bash(sqlite3 /d/mine/NoteKeeper/pkm.db \".schema\")",
+      "Bash(sqlite3 /d/mine/NoteKeeper/pkm.db \"SELECT COUNT\\(*\\) as bookmarks FROM bookmarks; SELECT COUNT\\(*\\) as tasks FROM tasks; SELECT COUNT\\(*\\) as notes FROM notes; SELECT COUNT\\(*\\) as folders FROM folders;\")",
+      "Bash(sqlite3 /d/mine/NoteKeeper/pkm.db \"PRAGMA table_info\\(notes\\); PRAGMA table_info\\(tasks\\); PRAGMA table_info\\(bookmarks\\);\")",
+      "Bash(node -c server.js)",
+      "Bash(node -c public/app.js)",
+      "Bash(node --check public/app.js)",
+      "Bash(node --check server.js)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(ls d:/mine/NoteKeeper/*.json d:/mine/NoteKeeper/*.db d:/mine/NoteKeeper/*.sql)",
+      "Bash(chmod +x d:/mine/NoteKeeper/.git/hooks/pre-commit)",
+      "Bash(node export_backup.js)"
+    ]
+  }
+}

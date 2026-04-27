@@ -1,0 +1,3 @@
+node server.js
+or
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force; node server.js
