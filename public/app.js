@@ -1414,7 +1414,15 @@ async function loadTasks() {
         const todoEl = document.getElementById('task-list-todo');
         if (todoEl && todoEl.innerHTML === '') todoEl.innerHTML = '<div class="loading-spinner"></div>';
         const tasks = await apiFetch(`${API_BASE}/tasks`);
-        renderTasks(tasks);
+
+        const dueDates = [...new Set(tasks.filter(t => t.status === 'todo' && t.due_date).map(t => t.due_date))];
+        const plannedSet = new Set();
+        if (dueDates.length > 0) {
+            const results = await Promise.all(dueDates.map(d => apiFetch(`${API_BASE}/planner?date=${d}`).catch(() => [])));
+            results.forEach(blocks => blocks.forEach(b => plannedSet.add(`${b.date}::${b.label}`)));
+        }
+
+        renderTasks(tasks, plannedSet);
     } catch (err) { console.error('Failed to load tasks', err); }
 }
 
@@ -1460,7 +1468,16 @@ async function updateTaskDate(id, dateStr) {
     loadTasks();
 }
 
-function renderTasks(tasks) {
+let plannerOpenedFromTask = false;
+
+function planTaskInPlanner(taskTitle, dueDate) {
+    plannerOpenedFromTask = true;
+    plannerCurrentDate = dueDate;
+    openPlannerModal(null);
+    document.getElementById('pb-label').value = taskTitle;
+}
+
+function renderTasks(tasks, plannedSet = new Set()) {
     // 1. Clear the current lists
     document.getElementById('task-list-todo').innerHTML = '';
     document.getElementById('task-list-progress').innerHTML = '';
@@ -1544,9 +1561,19 @@ function renderTasks(tasks) {
 
         let dateHtml = '';
         if (task.status === 'todo') {
-            dateHtml = task.due_date
-                ? `<input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">`
-                : `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
+            const safeTitleForAttr = String(task.title || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            if (task.due_date) {
+                const isPlanned = plannedSet.has(`${task.due_date}::${task.title}`);
+                const planBtn = isPlanned
+                    ? `<span title="Already planned in Planner" style="font-size:10px; color:#4caf50; background:rgba(76,175,80,0.12); border:1px solid rgba(76,175,80,0.3); border-radius:4px; padding:2px 7px;">&#10003; Planned</span>`
+                    : `<button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${task.due_date}')" title="Plan start/end time in Planner" style="font-size:10px; background:rgba(5,217,232,0.12); color:var(--accent-cyan); border:1px solid rgba(5,217,232,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Plan</button>`;
+                dateHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">
+                    ${planBtn}
+                </div>`;
+            } else {
+                dateHtml = `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
+            }
         } else if (task.due_date) {
             dateHtml = `<div style="font-size:11px; color:#888;">Due: ${task.due_date}</div>`;
         }
@@ -2646,6 +2673,7 @@ function openPlannerModal(block = null, defaultStart = '', defaultEnd = '') {
 function closePlannerModal() {
     document.getElementById('planner-modal-backdrop').classList.add('hidden');
     plannerEditingId = null;
+    plannerOpenedFromTask = false;
 }
 
 async function savePlannerBlock() {
@@ -2665,6 +2693,10 @@ async function savePlannerBlock() {
         }
         closePlannerModal();
         loadPlanner();
+        if (plannerOpenedFromTask) {
+            plannerOpenedFromTask = false;
+            loadTasks();
+        }
     } catch(e) {
         showToast('Failed to save block', 'error');
     }
