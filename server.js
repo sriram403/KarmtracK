@@ -83,6 +83,7 @@ function initDb() {
         db.run(`ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE notes ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN repeat TEXT`, () => {});
 
         // 7. PLANNER BLOCKS
         db.run(`CREATE TABLE IF NOT EXISTS planner_blocks (
@@ -275,6 +276,32 @@ app.put('/api/notes/:id', (req, res) => {
     );
 });
 
+function getNextDueDate(currentDueDate, repeat) {
+    const base = currentDueDate ? new Date(currentDueDate + 'T00:00:00') : new Date();
+    const next = new Date(base);
+    next.setDate(next.getDate() + 1);
+    const dayMap = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 };
+    if (repeat === 'daily') {
+        // next is already +1
+    } else if (repeat === 'weekdays') {
+        while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
+    } else if (repeat === 'weekends') {
+        while (next.getDay() !== 0 && next.getDay() !== 6) next.setDate(next.getDate() + 1);
+    } else if (dayMap[repeat] !== undefined) {
+        const target = dayMap[repeat];
+        while (next.getDay() !== target) next.setDate(next.getDate() + 1);
+    }
+    return `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
+}
+
+app.put('/api/tasks/:id/repeat', (req, res) => {
+    const { repeat } = req.body;
+    db.run("UPDATE tasks SET repeat = ? WHERE id = ?", [repeat || null, req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Updated" });
+    });
+});
+
 app.put('/api/tasks/:id', (req, res) => {
     const { title, status, due_date, notes, checklist } = req.body;
     const taskId = req.params.id;
@@ -297,11 +324,17 @@ app.put('/api/tasks/:id', (req, res) => {
                 const completionMessage = `\n\n<hr><p><em><strong>Completed on:</strong> ${new Date().toLocaleString()}<br><strong>Total Time Taken:</strong> ${timeString}</em></p>`;
                 
                 const newNotes = (task.notes || '') + completionMessage;
-                
+
                 // Final update query
                 const sql = "UPDATE tasks SET title = COALESCE(?, title), status = ?, due_date = COALESCE(?, due_date), notes = ?, checklist = COALESCE(?, checklist) WHERE id = ?";
                 db.run(sql, [title, status, due_date, newNotes, checklist, taskId], (err) => {
                     if (err) return res.status(500).json({ error: err.message });
+                    // Spawn next occurrence for repeating tasks
+                    if (task.repeat) {
+                        const nextDue = getNextDueDate(task.due_date, task.repeat);
+                        db.run("INSERT INTO tasks (title, status, due_date, repeat) VALUES (?, 'todo', ?, ?)",
+                            [task.title, nextDue, task.repeat]);
+                    }
                     res.json({ message: "Task completed and updated." });
                 });
             });

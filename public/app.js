@@ -1417,12 +1417,17 @@ async function loadTasks() {
 
         const dueDates = [...new Set(tasks.filter(t => t.status === 'todo' && t.due_date).map(t => t.due_date))];
         const plannedSet = new Set();
+        const plannedBlockMap = {}; // key "date::label" -> block object
         if (dueDates.length > 0) {
             const results = await Promise.all(dueDates.map(d => apiFetch(`${API_BASE}/planner?date=${d}`).catch(() => [])));
-            results.forEach(blocks => blocks.forEach(b => plannedSet.add(`${b.date}::${b.label}`)));
+            results.forEach(blocks => blocks.forEach(b => {
+                const key = `${b.date}::${b.label}`;
+                plannedSet.add(key);
+                plannedBlockMap[key] = b;
+            }));
         }
 
-        renderTasks(tasks, plannedSet);
+        renderTasks(tasks, plannedSet, plannedBlockMap);
     } catch (err) { console.error('Failed to load tasks', err); }
 }
 
@@ -1468,6 +1473,11 @@ async function updateTaskDate(id, dateStr) {
     loadTasks();
 }
 
+async function updateTaskRepeat(id, repeatVal) {
+    await apiFetch(`${API_BASE}/tasks/${id}/repeat`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repeat: repeatVal || null }) });
+    loadTasks();
+}
+
 let plannerOpenedFromTask = false;
 
 function planTaskInPlanner(taskTitle, dueDate) {
@@ -1477,7 +1487,23 @@ function planTaskInPlanner(taskTitle, dueDate) {
     document.getElementById('pb-label').value = taskTitle;
 }
 
-function renderTasks(tasks, plannedSet = new Set()) {
+function editPlannedBlock(blockJson) {
+    plannerOpenedFromTask = true;
+    const block = JSON.parse(decodeURIComponent(blockJson));
+    plannerCurrentDate = block.date;
+    openPlannerModal(block);
+}
+
+async function resetPlannedBlock(blockId) {
+    try {
+        await apiFetch(`${API_BASE}/planner/${blockId}`, { method: 'DELETE' });
+        loadTasks();
+    } catch(e) {
+        showToast('Failed to remove plan', 'error');
+    }
+}
+
+function renderTasks(tasks, plannedSet = new Set(), plannedBlockMap = {}) {
     // 1. Clear the current lists
     document.getElementById('task-list-todo').innerHTML = '';
     document.getElementById('task-list-progress').innerHTML = '';
@@ -1563,9 +1589,14 @@ function renderTasks(tasks, plannedSet = new Set()) {
         if (task.status === 'todo') {
             const safeTitleForAttr = String(task.title || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             if (task.due_date) {
-                const isPlanned = plannedSet.has(`${task.due_date}::${task.title}`);
+                const planKey = `${task.due_date}::${task.title}`;
+                const isPlanned = plannedSet.has(planKey);
                 const planBtn = isPlanned
-                    ? `<span title="Already planned in Planner" style="font-size:10px; color:#4caf50; background:rgba(76,175,80,0.12); border:1px solid rgba(76,175,80,0.3); border-radius:4px; padding:2px 7px;">&#10003; Planned</span>`
+                    ? (() => {
+                        const blockData = encodeURIComponent(JSON.stringify(plannedBlockMap[planKey]));
+                        const blockId = plannedBlockMap[planKey].id;
+                        return `<button onclick="event.stopPropagation(); editPlannedBlock('${blockData}')" title="Edit planned time" style="font-size:10px; color:#4caf50; background:rgba(76,175,80,0.12); border:1px solid rgba(76,175,80,0.3); border-radius:4px 0 0 4px; padding:2px 7px; cursor:pointer;">&#10003; Planned</button><button onclick="event.stopPropagation(); resetPlannedBlock(${blockId})" title="Remove planned time" style="font-size:10px; color:#888; background:rgba(76,175,80,0.08); border:1px solid rgba(76,175,80,0.3); border-left:none; border-radius:0 4px 4px 0; padding:2px 6px; cursor:pointer;">&times;</button>`;
+                    })()
                     : `<button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${task.due_date}')" title="Plan start/end time in Planner" style="font-size:10px; background:rgba(5,217,232,0.12); color:var(--accent-cyan); border:1px solid rgba(5,217,232,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Plan</button>`;
                 dateHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">
@@ -1576,6 +1607,30 @@ function renderTasks(tasks, plannedSet = new Set()) {
             }
         } else if (task.due_date) {
             dateHtml = `<div style="font-size:11px; color:#888;">Due: ${task.due_date}</div>`;
+        }
+
+        const REPEAT_LABELS = { daily:'Every day', weekdays:'Weekdays', weekends:'Weekends', mon:'Every Mon', tue:'Every Tue', wed:'Every Wed', thu:'Every Thu', fri:'Every Fri', sat:'Every Sat', sun:'Every Sun' };
+        let repeatHtml = '';
+        if (task.status === 'todo') {
+            const rv = task.repeat || '';
+            repeatHtml = `<div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
+                <span style="font-size:10px; color:#666;">&#8635;</span>
+                <select onclick="event.stopPropagation()" onchange="updateTaskRepeat(${task.id}, this.value)" style="font-size:10px; background:#1a1a1a; color:${rv ? 'var(--accent-cyan)' : '#666'}; border:1px solid #333; border-radius:4px; padding:2px 5px; cursor:pointer;">
+                    <option value="" ${!rv ? 'selected' : ''}>No repeat</option>
+                    <option value="daily" ${rv==='daily' ? 'selected' : ''}>Every day</option>
+                    <option value="weekdays" ${rv==='weekdays' ? 'selected' : ''}>Weekdays (Mon–Fri)</option>
+                    <option value="weekends" ${rv==='weekends' ? 'selected' : ''}>Weekends (Sat–Sun)</option>
+                    <option value="mon" ${rv==='mon' ? 'selected' : ''}>Every Monday</option>
+                    <option value="tue" ${rv==='tue' ? 'selected' : ''}>Every Tuesday</option>
+                    <option value="wed" ${rv==='wed' ? 'selected' : ''}>Every Wednesday</option>
+                    <option value="thu" ${rv==='thu' ? 'selected' : ''}>Every Thursday</option>
+                    <option value="fri" ${rv==='fri' ? 'selected' : ''}>Every Friday</option>
+                    <option value="sat" ${rv==='sat' ? 'selected' : ''}>Every Saturday</option>
+                    <option value="sun" ${rv==='sun' ? 'selected' : ''}>Every Sunday</option>
+                </select>
+            </div>`;
+        } else if (task.repeat) {
+            repeatHtml = `<div style="font-size:10px; color:#888; margin-top:3px;">&#8635; ${REPEAT_LABELS[task.repeat] || task.repeat}</div>`;
         }
 
         const past = parseInt(task.past_duration) || 0;
@@ -1642,7 +1697,7 @@ function renderTasks(tasks, plannedSet = new Set()) {
                 </div>
             </div>
 
-            <div style="margin-bottom:8px;">${dateHtml}</div>
+            <div style="margin-bottom:4px;">${dateHtml}${repeatHtml}</div>
 
             ${checklistProgressHtml}
 
