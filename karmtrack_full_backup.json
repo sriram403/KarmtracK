@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "timestamp": "2026-04-27T18:53:15.700Z",
+  "timestamp": "2026-05-09T06:23:46.143Z",
   "folders": [
     "dummy",
     "NN",
@@ -1766,126 +1766,82 @@
       "tags": [
         "repo"
       ]
-    }
-  ],
-  "notes": [
-    {
-      "title": "Untitled Note",
-      "content": "dasdfasdf",
-      "created_at": "2026-03-07 09:34:20",
-      "folder": "dummy"
     },
     {
-      "title": "Untitled Note",
-      "content": "asdfasdfdxdges",
-      "created_at": "2026-03-07 09:35:08",
-      "folder": "dummy"
-    }
-  ],
-  "tasks": [
-    {
-      "title": "works",
-      "status": "todo",
-      "due_date": "2026-02-16",
-      "checklist": "[]",
-      "notes": "<br><div><div><br></div></div>\n\n<hr><p><em><strong>Completed on:</strong> 7/3/2026, 1:57:20 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>\n\n<hr><p><em><strong>Completed on:</strong> 12/4/2026, 7:30:58 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>",
-      "created_at": "2026-02-06 06:01:14",
-      "sessions": []
+      "url": "https://x.com/r0ktech/status/2048901706025402864?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:38:19",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
     },
     {
-      "title": "Gameplay",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": "[]",
-      "notes": "Finishing The Game<div>1. Expedition 33</div>",
-      "created_at": "2026-02-06 06:01:29",
-      "sessions": []
+      "url": "https://x.com/NoahKingJr/status/2048997638553350155?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:38:30",
+      "folder": "Breakthroughs And Memes",
+      "tags": []
     },
     {
-      "title": "knowledge",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": "[]",
-      "notes": "Bank<div>1. Term&nbsp;</div><div>2. Health</div><div>3. ULIP</div><div>4. New Bank Account Type</div>",
-      "created_at": "2026-02-06 06:02:07",
-      "sessions": []
+      "url": "https://x.com/heynavtoor/status/2050191961320206605?s=20",
+      "title": "free, open-source download manager",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:39:37",
+      "folder": "Tools",
+      "tags": [
+        "repo"
+      ]
     },
     {
-      "title": "Youtube",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": null,
-      "notes": null,
-      "created_at": "2026-02-06 06:02:16",
-      "sessions": []
+      "url": "https://x.com/ihtesham2005/status/2050501242179436840?s=20",
+      "title": "open-sourced Dropbox, iCloud, and OneDrive",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:40:20",
+      "folder": "Tools",
+      "tags": [
+        "repo"
+      ]
     },
     {
-      "title": "Sadhguru Exclusive",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": null,
-      "notes": "\n\n<hr><p><em><strong>Completed on:</strong> 7/2/2026, 2:52:01 pm<br><strong>Total Time Taken:</strong> 0h 0m 0s</em></p>",
-      "created_at": "2026-02-06 06:03:30",
-      "sessions": []
+      "url": "https://x.com/milesdeutscher/status/2049618781841031551?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:41:29",
+      "folder": "Prompt",
+      "tags": [
+        "prompts",
+        "hacking"
+      ]
     },
     {
-      "title": "Music",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": null,
-      "notes": null,
-      "created_at": "2026-02-06 06:03:39",
-      "sessions": []
+      "url": "https://x.com/DeepTechTR/status/2050653888098013481?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:41:45",
+      "folder": "Audio",
+      "tags": [
+        "repo"
+      ]
     },
     {
-      "title": "GameDev",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": null,
-      "notes": null,
-      "created_at": "2026-02-06 06:03:53",
-      "sessions": []
-    },
-    {
-      "title": "Research",
-      "status": "todo",
-      "due_date": "2026-02-09",
-      "checklist": "[]",
-      "notes": "Agentic coding<div>1. Fix Bugs in this Tool</div><div>2. Upload Bookmarks here and clean the X</div>",
-      "created_at": "2026-02-06 07:23:08",
-      "sessions": []
-    },
-    {
-      "title": "Walk",
-      "status": "todo",
-      "due_date": "2026-02-16",
-      "checklist": null,
-      "notes": null,
-      "created_at": "2026-02-06 10:36:05",
-      "sessions": []
-    },
-    {
-      "title": "Youtube Vid",
-      "status": "todo",
-      "due_date": "2026-02-16",
-      "checklist": "[]",
-      "notes": "",
-      "created_at": "2026-02-06 10:36:18",
-      "sessions": []
-    },
-    {
-      "title": "workout",
-      "status": "todo",
-      "due_date": "2026-03-12",
-      "checklist": "[]",
-      "notes": "<br>",
-      "created_at": "2026-02-23 09:03:21",
-      "sessions": [
-        {
-          "start_time": "2026-02-24 10:16:11",
-          "end_time": "2026-02-24 11:47:24"
-        }
+      "url": "https://x.com/sukh_saroy/status/2051274468744728654?s=20",
+      "title": "Fetching title...",
+      "description": "Pending...",
+      "thumbnail": "",
+      "created_at": "2026-05-09 04:42:08",
+      "folder": "Image",
+      "tags": [
+        "repo"
       ]
     }
-  ]
+  ],
+  "notes": [],
+  "tasks": []
 }

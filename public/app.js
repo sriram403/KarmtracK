@@ -32,19 +32,35 @@ function showToast(message, type = 'info') {
 }
 
 // --- Utility: Themed confirm dialog (replaces native confirm) ---
-function showConfirm(message) {
+// options.skipKey: if provided, checks localStorage('confirm_skip_<skipKey>') and shows "Don't show again" checkbox
+function showConfirm(message, options = {}) {
+    const { skipKey } = options;
+    if (skipKey && localStorage.getItem(`confirm_skip_${skipKey}`) === 'true') {
+        return Promise.resolve(true);
+    }
     return new Promise((resolve) => {
         const backdrop = document.getElementById('confirm-dialog-backdrop');
         const msgEl = document.getElementById('confirm-dialog-message');
         const yesBtn = document.getElementById('confirm-dialog-yes');
         const cancelBtn = document.getElementById('confirm-dialog-cancel');
+        const skipLabel = document.getElementById('confirm-dialog-skip-label');
+        const skipCb = document.getElementById('confirm-dialog-skip-cb');
         if (!backdrop || !msgEl) { resolve(confirm(message)); return; }
 
         msgEl.textContent = message;
+        if (skipKey && skipLabel && skipCb) {
+            skipCb.checked = false;
+            skipLabel.classList.remove('hidden');
+        } else if (skipLabel) {
+            skipLabel.classList.add('hidden');
+        }
         backdrop.classList.remove('hidden');
 
         function cleanup(result) {
             backdrop.classList.add('hidden');
+            if (skipKey && skipCb && skipCb.checked && result) {
+                localStorage.setItem(`confirm_skip_${skipKey}`, 'true');
+            }
             yesBtn.removeEventListener('click', onYes);
             cancelBtn.removeEventListener('click', onCancel);
             resolve(result);
@@ -63,6 +79,7 @@ let allBookmarksCache = []; // Stores raw data from API
 let currentSearchTerm = ''; // Stores local search text
 let allTagsCache = []; // Cache of all existing tags for autocomplete
 let bmCollapsedSections = {}; // Tracks which folder sections are collapsed
+let currentBmSort = 'newest'; // newest | oldest
 let allNotesCache = [];
 let currentNoteFolder = null; // null = All
 let currentNoteSearch = '';
@@ -89,7 +106,8 @@ try {
 
 function toggleSidebarSection(sectionId, titleEl) {
     const section = document.getElementById(sectionId);
-    const arrow = titleEl.querySelector('.material-icons');
+    const arrows = titleEl.querySelectorAll('.material-icons');
+    const arrow = arrows[arrows.length - 1];
     const isHidden = section.style.display === 'none';
     section.style.display = isHidden ? (sectionId === 'sidebar-tags' ? 'flex' : 'block') : 'none';
     if (arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
@@ -688,77 +706,59 @@ function switchTab(tabName) {
     const navTarget = document.getElementById(`nav-${tabName}`);
     if (navTarget) navTarget.classList.add('active');
 
-    if (tabName === 'dashboard') { loadDashboard(); loadTags(); loadFolders(); }
+    const bmExtras = document.getElementById('bookmark-sidebar-extras');
+    if (bmExtras) bmExtras.style.display = tabName === 'bookmarks' ? 'block' : 'none';
+
+    if (tabName === 'dashboard') loadDashboard();
     if (tabName === 'bookmarks') { loadBookmarks(); loadFolders(); loadTags(); }
     if (tabName === 'tasks') loadTasks();
     if (tabName === 'research') { loadNotes(); loadNoteFolders(); }
     if (tabName === 'archive') loadArchive();
     if (tabName === 'stats') loadStats();
+    if (tabName === 'planner') initPlanner();
 }
 async function loadNoteFolders() {
     try {
         const folders = await apiFetch(`${API_BASE}/folders`);
-        
+
         // 1. Populate Left Sidebar List
         const list = document.getElementById('note-folder-list');
         list.innerHTML = '';
-        
-        // "All Notes" option
+
+        // "All Notes" item
         const allDiv = document.createElement('div');
-        allDiv.innerHTML = '<strong>All Notes</strong>';
-        allDiv.style.padding = '10px';
-        allDiv.style.cursor = 'pointer';
-        allDiv.style.borderBottom = '1px solid #eee';
-        allDiv.onclick = () => { currentNoteFolder = null; renderNotesList(); };
+        allDiv.className = 'rp-folder-item' + (currentNoteFolder === null ? ' active' : '');
+        allDiv.innerHTML = `<span class="material-icons rp-folder-icon">inbox</span><span class="rp-folder-name">All Notes</span>`;
+        allDiv.onclick = () => { currentNoteFolder = null; loadNoteFolders(); renderNotesList(); };
         list.appendChild(allDiv);
 
         folders.forEach(f => {
-            // Container
             const div = document.createElement('div');
-            div.style.padding = '10px';
-            div.style.cursor = 'pointer';
-            div.style.fontSize = '14px';
-            div.style.display = 'flex';              // <--- Changed to Flex
-            div.style.justifyContent = 'space-between'; // <--- Push X to right
-            div.style.alignItems = 'center';
-            div.style.borderBottom = '1px solid #f9f9f9';
+            div.className = 'rp-folder-item' + (currentNoteFolder === f.id ? ' active' : '');
 
-            // Hover effect
-            div.onmouseover = () => div.style.background = '#eef';
-            div.onmouseout = () => div.style.background = 'transparent';
-            
-            // Click Folder Name Logic
-            div.onclick = () => { currentNoteFolder = f.id; renderNotesList(); };
+            const icon = document.createElement('span');
+            icon.className = 'material-icons rp-folder-icon';
+            icon.textContent = 'folder';
 
-            // Folder Name
             const nameSpan = document.createElement('span');
+            nameSpan.className = 'rp-folder-name';
             nameSpan.textContent = f.name;
 
-            // Delete Button (X)
             const delBtn = document.createElement('span');
-            delBtn.innerHTML = '&times;';
-            delBtn.style.color = '#ccc';
-            delBtn.style.fontWeight = 'bold';
-            delBtn.style.paddingLeft = '10px';
-            delBtn.onmouseover = (e) => { e.target.style.color = 'red'; };
-            delBtn.onmouseout = (e) => { e.target.style.color = '#ccc'; };
-            
-            // Prevent click from bubbling up (so clicking X doesn't open the folder)
-            delBtn.onclick = (e) => { 
-                e.stopPropagation(); 
-                deleteFolder(f.id, f.name); 
-            };
+            delBtn.className = 'material-icons rp-folder-del';
+            delBtn.textContent = 'close';
+            delBtn.onclick = (e) => { e.stopPropagation(); deleteFolder(f.id, f.name); };
 
+            div.appendChild(icon);
             div.appendChild(nameSpan);
             div.appendChild(delBtn);
+            div.onclick = () => { currentNoteFolder = f.id; loadNoteFolders(); renderNotesList(); };
             list.appendChild(div);
         });
 
         // 2. Populate Dropdown in Editor
         const select = document.getElementById('note-folder-select');
-        // Save current selection if possible, otherwise it resets every time we add a folder
-        const currentVal = select.value; 
-        
+        const currentVal = select.value;
         select.innerHTML = '<option value="">Uncategorized</option>';
         folders.forEach(f => {
             const opt = document.createElement('option');
@@ -766,8 +766,7 @@ async function loadNoteFolders() {
             opt.textContent = f.name;
             select.appendChild(opt);
         });
-        
-        if(currentVal) select.value = currentVal;
+        if (currentVal) select.value = currentVal;
 
     } catch (err) { console.error(err); }
 }
@@ -929,7 +928,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function deleteBookmark(id) {
-    if(!(await showConfirm("Delete this bookmark?"))) return;
+    if(!(await showConfirm("Delete this bookmark?", { skipKey: 'delete' }))) return;
     try {
         await apiFetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' });
         allBookmarksCache = allBookmarksCache.filter(bm => bm.id !== id);
@@ -941,6 +940,13 @@ async function deleteBookmark(id) {
 
 function toggleBmView(view) {
     currentBmView = view;
+    renderBookmarks();
+}
+
+function toggleBmSort() {
+    currentBmSort = currentBmSort === 'newest' ? 'oldest' : 'newest';
+    const btn = document.getElementById('bm-sort-btn');
+    if (btn) btn.textContent = currentBmSort === 'newest' ? 'Newest First' : 'Oldest First';
     renderBookmarks();
 }
 
@@ -1000,6 +1006,13 @@ function renderBookmarks() {
         });
     }
 
+    // Sort by upload time
+    displayData = [...displayData].sort((a, b) => {
+        const ta = new Date(a.created_at).getTime();
+        const tb = new Date(b.created_at).getTime();
+        return currentBmSort === 'newest' ? tb - ta : ta - tb;
+    });
+
     if (displayData.length === 0) {
         mainContainer.innerHTML = '<div style="padding:20px; color:#666; font-style:italic;">The void stares back... (No bookmarks found)</div>';
         return;
@@ -1029,7 +1042,7 @@ function renderBookmarks() {
 
             const header = document.createElement('div');
             header.className = 'bm-section-header';
-            header.innerHTML = `<span>${escapeHtml(folderName)} <span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">(${count})</span></span><span class="bm-section-toggle material-icons${isCollapsed ? ' collapsed' : ''}">expand_more</span>`;
+            header.innerHTML = `<span style="display:flex;align-items:center;gap:10px;">${escapeHtml(folderName)}<span class="bm-section-count">${count}</span></span><span class="bm-section-toggle material-icons${isCollapsed ? ' collapsed' : ''}">expand_more</span>`;
             mainContainer.appendChild(header);
 
             const folderContainer = document.createElement('div');
@@ -1198,56 +1211,35 @@ async function loadFolders() {
         sidebarList.innerHTML = '';
 
         const allDiv = document.createElement('div');
-        allDiv.style.padding = '8px 10px';
-        allDiv.style.cursor = 'pointer';
-        allDiv.style.color = 'var(--text-white)';
-        allDiv.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-        allDiv.style.fontSize = '14px';
-        allDiv.innerHTML = '<strong>View All</strong>';
-        allDiv.onclick = () => {
-            switchTab('bookmarks');
-            setViewFolder(null, 'All');
-        };
+        allDiv.className = 'sidebar-folder-item sidebar-folder-all';
+        allDiv.innerHTML = '<span class="material-icons" style="font-size:14px;opacity:0.5;">layers</span><span>All Bookmarks</span>';
+        allDiv.onclick = () => { setViewFolder(null, 'All'); };
         sidebarList.appendChild(allDiv);
 
         folders.forEach(folder => {
             const div = document.createElement('div');
-            div.style.display = 'flex';
-            div.style.justifyContent = 'space-between';
-            div.style.alignItems = 'center';
-            div.style.padding = '8px 10px';
-            div.style.color = '#aaa';
-            div.style.fontSize = '14px';
-            div.style.transition = '0.2s';
-            
-            div.onmouseover = () => { div.style.color = 'var(--accent-cyan)'; div.style.background = 'rgba(255,255,255,0.05)'; };
-            div.onmouseout = () => { div.style.color = '#aaa'; div.style.background = 'transparent'; };
+            div.className = 'sidebar-folder-item';
 
             const nameSpan = document.createElement('span');
+            nameSpan.className = 'sidebar-folder-name';
             nameSpan.textContent = folder.name;
-            nameSpan.style.cursor = 'pointer';
-            nameSpan.style.flex = '1'; 
-            nameSpan.onclick = () => {
-                switchTab('bookmarks');
-                setViewFolder(folder.id, folder.name);
-            };
+            nameSpan.onclick = () => { setViewFolder(folder.id, folder.name); };
 
             const delBtn = document.createElement('button');
-            delBtn.innerHTML = '&times;';
-            delBtn.style.color = 'var(--primary-red)'; 
-            delBtn.style.border = 'none'; 
-            delBtn.style.background = 'none'; 
-            delBtn.style.cursor = 'pointer';
-            delBtn.style.fontSize = '16px';
-            delBtn.onclick = (e) => { 
-                e.stopPropagation(); 
-                deleteFolder(folder.id, folder.name); 
-            };
+            delBtn.className = 'sidebar-folder-del';
+            delBtn.innerHTML = '<span class="material-icons" style="font-size:13px;">delete_outline</span>';
+            delBtn.onclick = (e) => { e.stopPropagation(); deleteFolder(folder.id, folder.name); };
 
             div.appendChild(nameSpan);
             div.appendChild(delBtn);
             sidebarList.appendChild(div);
         });
+
+        const newFolderBtn = document.createElement('button');
+        newFolderBtn.className = 'sidebar-folder-new-btn';
+        newFolderBtn.innerHTML = '<span class="material-icons" style="font-size:13px;">add</span> New Folder';
+        newFolderBtn.onclick = createNewFolder;
+        sidebarList.appendChild(newFolderBtn);
         
     } catch (err) { console.error("Failed to load folders", err); }
 }
@@ -1266,7 +1258,7 @@ async function createNewFolder() {
 }
 
 async function deleteFolder(id, name) {
-    if (!(await showConfirm(`WARNING: Delete the "${name}" folder? This will permanently delete all Bookmarks and Notes in this folder.`))) return;
+    if (!(await showConfirm(`WARNING: Delete the "${name}" folder? This will permanently delete all Bookmarks and Notes in this folder.`, { skipKey: 'delete' }))) return;
     
     try {
         await apiFetch(`${API_BASE}/folders/${id}`, { method: 'DELETE' });
@@ -1373,29 +1365,27 @@ async function loadTags() {
         container.innerHTML = '';
         tags.forEach(tag => {
             const wrapper = document.createElement('div');
-            wrapper.style.display = 'inline-flex';
-            wrapper.style.alignItems = 'center';
-            wrapper.style.margin = '2px';
-            wrapper.style.background = 'transparent';
-            wrapper.style.border = '1px solid var(--accent-cyan)';
-            wrapper.style.borderRadius = '15px';
-            wrapper.style.padding = '2px 8px';
-            
-            const span = document.createElement('span');
-            span.style.fontSize = '11px';
-            span.style.color = 'var(--accent-cyan)';
-            span.innerText = `${tag.name} (${tag.count})`;
-            
-            const delBtn = document.createElement('span');
+            wrapper.className = 'sidebar-tag-pill';
+
+            const label = document.createElement('span');
+            label.className = 'sidebar-tag-label';
+            label.textContent = tag.name;
+            label.onclick = () => {
+                const filterInput = document.querySelector('#view-bookmarks input[onkeyup]');
+                if (filterInput) { filterInput.value = tag.name; filterBookmarksLocally(tag.name); }
+            };
+
+            const count = document.createElement('span');
+            count.className = 'sidebar-tag-count';
+            count.textContent = tag.count;
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'sidebar-tag-del';
             delBtn.innerHTML = '&times;';
-            delBtn.style.marginLeft = '8px';
-            delBtn.style.cursor = 'pointer';
-            delBtn.style.color = 'var(--primary-red)';
-            delBtn.style.fontWeight = 'bold';
-            delBtn.style.fontSize = '14px';
             delBtn.onclick = (e) => { e.stopPropagation(); deleteTag(tag.id, tag.name); };
-            
-            wrapper.appendChild(span);
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(count);
             wrapper.appendChild(delBtn);
             container.appendChild(wrapper);
         });
@@ -1403,7 +1393,7 @@ async function loadTags() {
 }
 
 async function deleteTag(id, name) {
-    if(!(await showConfirm(`Deleting tag "${name}" will remove it from ALL items. Proceed?`))) return;
+    if(!(await showConfirm(`Deleting tag "${name}" will remove it from ALL items. Proceed?`, { skipKey: 'delete' }))) return;
     try {
         await apiFetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
         showToast(`Tag "${name}" deleted`, 'success');
@@ -1425,7 +1415,6 @@ async function loadTasks() {
         if (todoEl && todoEl.innerHTML === '') todoEl.innerHTML = '<div class="loading-spinner"></div>';
         const tasks = await apiFetch(`${API_BASE}/tasks`);
         renderTasks(tasks);
-        renderCalendarPreview(tasks);
     } catch (err) { console.error('Failed to load tasks', err); }
 }
 
@@ -1440,7 +1429,6 @@ async function addTask() {
 }
 
 async function deleteTask(id) {
-    if (!(await showConfirm("Are you sure you want to delete this task?"))) return;
     try {
         await apiFetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
         showToast('Task deleted', 'success');
@@ -1681,36 +1669,6 @@ function deleteChecklistItem(index) {
     renderTaskChecklist(); // Re-render the list
 }
 
-function renderCalendarPreview(tasks) {
-    const container = document.getElementById('simple-calendar');
-    container.innerHTML = '';
-    const datedTasks = tasks.filter(t => t.due_date).sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
-    
-    if(datedTasks.length === 0) {
-        container.innerHTML = '<div style="color:#666; padding:20px; text-align:center; font-style:italic;">No missions scheduled.</div>';
-        return;
-    }
-    
-    datedTasks.forEach(t => {
-        const item = document.createElement('div');
-        item.style.padding = '10px';
-        item.style.borderBottom = '1px solid #333';
-        item.style.display = 'flex';
-        item.style.justifyContent = 'space-between';
-        
-        const isDone = t.status === 'done';
-        const color = isDone ? '#444' : 'white';
-        const dateColor = isDone ? '#444' : 'var(--accent-cyan)';
-        const textDec = isDone ? 'line-through' : 'none';
-
-        item.innerHTML = `
-            <div style="color:${dateColor}; font-weight:bold; font-size:12px;">${t.due_date}</div>
-            <div style="color:${color}; text-decoration:${textDec}; font-size:13px; text-align:right;">${t.title}</div>
-        `;
-        container.appendChild(item);
-    });
-}
-
 
 /* =================================================================
    RESEARCH NOTES
@@ -1747,39 +1705,23 @@ function renderNotesList() {
     }
 
     if (displayNotes.length === 0) {
-        list.innerHTML = '<li style="padding:15px; color:#666; text-align:center; font-style:italic;">No data fragments found.</li>';
+        list.innerHTML = '<li class="rp-notes-empty">No notes found.</li>';
         return;
     }
 
     displayNotes.forEach(note => {
         const li = document.createElement('li');
-        li.style.padding = '15px';
-        li.style.borderBottom = '1px solid #333';
-        li.style.cursor = 'pointer';
-        li.style.transition = '0.2s';
-        
-        // Active vs Inactive Styling
-        if (activeNoteId === note.id) {
-            li.style.background = 'rgba(5, 217, 232, 0.1)'; // Cyan Tint
-            li.style.borderLeft = '4px solid var(--accent-cyan)';
-            li.style.color = 'white';
-        } else {
-            li.style.background = 'transparent';
-            li.style.borderLeft = '4px solid transparent';
-            li.style.color = '#ccc';
-        }
-        
-        // Hover Effect via JS (since we are doing inline styles for active state)
-        li.onmouseover = () => { if(activeNoteId !== note.id) li.style.background = '#222'; };
-        li.onmouseout = () => { if(activeNoteId !== note.id) li.style.background = 'transparent'; };
-        
+        li.className = 'rp-note-item' + (activeNoteId === note.id ? ' active' : '');
+
+        const preview = (note.content || '').replace(/[#*`>\-_\[\]]/g, '').trim().slice(0, 60);
+        const dateStr = new Date(note.updated_at || note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
         li.innerHTML = `
-            <div style="font-weight:600; font-size:14px;">${escapeHtml(note.title || 'Untitled')}</div>
-            <div style="font-size:11px; color:#666; margin-top:4px;">
-                ${new Date(note.created_at).toLocaleDateString()}
-            </div>
+            <div class="rp-note-title">${escapeHtml(note.title || 'Untitled')}</div>
+            ${preview ? `<div class="rp-note-preview">${escapeHtml(preview)}</div>` : ''}
+            <div class="rp-note-date">${dateStr}</div>
         `;
-        
+
         li.onclick = () => openNote(note.id);
         list.appendChild(li);
     });
@@ -1827,7 +1769,7 @@ async function openNote(id) {
 
 async function deleteNote() {
     if (!activeNoteId) return;
-    if (!(await showConfirm("Are you sure you want to delete this note permanently?"))) return;
+    if (!(await showConfirm("Are you sure you want to delete this note permanently?", { skipKey: 'delete' }))) return;
 
     try {
         await apiFetch(`${API_BASE}/notes/${activeNoteId}`, { method: 'DELETE' });
@@ -1877,13 +1819,50 @@ function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(sav
    ================================================================= */
 
 async function loadDashboard() {
-    const [tasks, bookmarks] = await Promise.all([apiFetch(`${API_BASE}/tasks`), apiFetch(`${API_BASE}/bookmarks`)]);
+    const tasks = await apiFetch(`${API_BASE}/tasks`);
 
     document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length}`;
-    document.getElementById('dash-bm-count').innerText = `${bookmarks.length}`;
 
     renderDashboardCalendar(tasks);
     initTimeLeft();
+    loadDashboardPlannerPreview();
+}
+
+async function loadDashboardPlannerPreview() {
+    const today = todayStr();
+    const dateLabel = document.getElementById('dash-planner-date');
+    const blocksEl = document.getElementById('dash-planner-blocks');
+    if (!dateLabel || !blocksEl) return;
+
+    const d = new Date();
+    dateLabel.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    let blocks = [];
+    try {
+        blocks = await apiFetch(`${API_BASE}/planner?date=${today}`);
+    } catch(e) { blocks = []; }
+
+    if (!blocks.length) {
+        blocksEl.innerHTML = '<span class="dash-planner-empty">No blocks scheduled today</span>';
+        return;
+    }
+
+    blocks.sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+
+    const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+
+    blocksEl.innerHTML = blocks.map(block => {
+        const startMin = timeToMinutes(block.start_time);
+        const endMin = timeToMinutes(block.end_time);
+        const isPast = endMin < nowMins;
+        const isActive = startMin <= nowMins && nowMins < endMin;
+        return `<div class="dash-planner-block-row${isActive ? ' active' : ''}${isPast ? ' past' : ''}" onclick="switchTab('planner')">
+            <span class="dash-planner-block-dot" style="background:${block.color};"></span>
+            <span class="dash-planner-block-time">${minutesToDisplay(startMin)}–${minutesToDisplay(endMin)}</span>
+            <span class="dash-planner-block-label">${escapeHtml(block.label)}</span>
+            ${isActive ? '<span class="dash-planner-active-badge">NOW</span>' : ''}
+        </div>`;
+    }).join('');
 }
 
 function getISOWeekNumber(d) {
@@ -2121,7 +2100,7 @@ async function restoreItem(type, id) {
 }
 
 async function hardDeleteItem(type, id) {
-    if (!(await showConfirm('Permanently delete this item? This cannot be undone.'))) return;
+    if (!(await showConfirm('Permanently delete this item? This cannot be undone.', { skipKey: 'delete' }))) return;
     try {
         await apiFetch(`${API_BASE}/archive/${type}/${id}`, { method: 'DELETE' });
         showToast('Permanently deleted', 'success');
@@ -2409,4 +2388,340 @@ function onNoteEditorInput() {
     if (noteViewMode === 'preview' || noteViewMode === 'split') {
         renderMarkdownPreview();
     }
+}
+
+/* ================= PLANNER ================= */
+const PLANNER_COLORS = [
+    '#05d9e8', '#ff2a6d', '#a855f7', '#f59e0b',
+    '#22c55e', '#3b82f6', '#ec4899', '#f97316',
+    '#14b8a6', '#e2e8f0'
+];
+const PLANNER_PX_PER_MIN = 1; // 1px per minute → 60px per hour
+
+let plannerCurrentDate = todayStr();
+let plannerBlocks = [];
+let plannerEditingId = null;
+let plannerNowTimer = null;
+let plannerSelectedColor = PLANNER_COLORS[0];
+
+function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function initPlanner() {
+    plannerRequestPermission();
+    const input = document.getElementById('planner-date-input');
+    if (input.value === '') {
+        plannerCurrentDate = todayStr();
+        input.value = plannerCurrentDate;
+    }
+    loadPlanner();
+}
+
+async function loadPlanner() {
+    const input = document.getElementById('planner-date-input');
+    plannerCurrentDate = input.value || todayStr();
+    input.value = plannerCurrentDate;
+    plannerResetNotifications();
+    try {
+        plannerBlocks = await apiFetch(`${API_BASE}/planner?date=${plannerCurrentDate}`);
+    } catch(e) {
+        plannerBlocks = [];
+    }
+    renderPlannerTimeline();
+}
+
+function plannerShiftDay(delta) {
+    const [y, m, d] = plannerCurrentDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d + delta);
+    plannerCurrentDate = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    document.getElementById('planner-date-input').value = plannerCurrentDate;
+    loadPlanner();
+}
+
+function plannerGoToday() {
+    plannerCurrentDate = todayStr();
+    document.getElementById('planner-date-input').value = plannerCurrentDate;
+    loadPlanner();
+}
+
+function spinTime(inputId, delta, min, max) {
+    const el = document.getElementById(inputId);
+    let v = parseInt(el.value) || min;
+    v += delta;
+    if (v < min) v = max;
+    if (v > max) v = min;
+    el.value = (max === 59) ? String(v).padStart(2, '0') : v;
+}
+
+function buildTimePicker(prefix, value24h) {
+    let h24 = 0, min = 0;
+    if (value24h) [h24, min] = value24h.split(':').map(Number);
+    const isPM = h24 >= 12;
+    const h12 = h24 % 12 || 12;
+
+    document.getElementById(`${prefix}-h`).value = h12;
+    document.getElementById(`${prefix}-m`).value = String(min).padStart(2, '0');
+
+    const toggle = document.getElementById(`${prefix}-ampm`);
+    toggle.querySelectorAll('.ampm-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.val === (isPM ? 'PM' : 'AM'));
+        btn.onclick = () => {
+            toggle.querySelectorAll('.ampm-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+    });
+}
+
+function getTimePickerValue(prefix) {
+    let h12 = parseInt(document.getElementById(`${prefix}-h`).value) || 12;
+    let m = parseInt(document.getElementById(`${prefix}-m`).value) || 0;
+    h12 = Math.min(12, Math.max(1, h12));
+    m = Math.min(59, Math.max(0, m));
+    const isPM = document.getElementById(`${prefix}-ampm`).querySelector('.ampm-btn.active')?.dataset.val === 'PM';
+    const h24 = h12 % 12 + (isPM ? 12 : 0);
+    return `${String(h24).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function timeToMinutes(t) {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function minutesToDisplay(mins) {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    const ampm = h < 12 ? 'am' : 'pm';
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+}
+
+function renderPlannerTimeline() {
+    const wrap = document.getElementById('planner-timeline-wrap');
+    const container = document.getElementById('planner-timeline');
+    container.innerHTML = '';
+
+    if (plannerNowTimer) clearInterval(plannerNowTimer);
+
+    // Build 24-hour grid (0..23)
+    for (let h = 0; h < 24; h++) {
+        const row = document.createElement('div');
+        row.className = 'planner-hour-row';
+        row.style.height = `${60 * PLANNER_PX_PER_MIN}px`;
+
+        const label = document.createElement('div');
+        label.className = 'planner-hour-label';
+        const ampm = h < 12 ? 'am' : 'pm';
+        const h12 = h % 12 || 12;
+        label.textContent = `${h12}${ampm}`;
+
+        const slot = document.createElement('div');
+        slot.className = 'planner-hour-slot half-mark';
+        slot.dataset.hour = h;
+        slot.addEventListener('click', (e) => {
+            if (e.target.closest('.planner-block')) return;
+            const rect = slot.getBoundingClientRect();
+            const clickMin = Math.floor((e.clientY - rect.top) / PLANNER_PX_PER_MIN);
+            const totalMin = h * 60 + Math.round(clickMin / 5) * 5;
+            const startH = String(Math.floor(totalMin / 60)).padStart(2,'0');
+            const startM = String(totalMin % 60).padStart(2,'0');
+            const endMin = Math.min(totalMin + 60, 24*60);
+            const endH = String(Math.floor(endMin / 60)).padStart(2,'0');
+            const endM = String(endMin % 60).padStart(2,'0');
+            openPlannerModal(null, `${startH}:${startM}`, `${endH}:${endM}`);
+        });
+
+        row.appendChild(label);
+        row.appendChild(slot);
+        container.appendChild(row);
+    }
+
+    // Overlay blocks
+    plannerBlocks.forEach(block => {
+        const startMin = timeToMinutes(block.start_time);
+        const endMin = timeToMinutes(block.end_time);
+        const durationMin = endMin - startMin;
+        if (durationMin <= 0) return;
+
+        const el = document.createElement('div');
+        el.className = 'planner-block' + (durationMin < 20 ? ' short' : '');
+        el.dataset.blockId = block.id;
+        el.style.top = `${startMin * PLANNER_PX_PER_MIN}px`;
+        el.style.height = `${durationMin * PLANNER_PX_PER_MIN}px`;
+        el.style.backgroundColor = block.color + '22';
+        el.style.borderLeft = `3px solid ${block.color}`;
+        el.style.color = block.color;
+
+        // Progress fill bar (fills as time passes through the block)
+        const fill = document.createElement('div');
+        fill.className = 'planner-block-fill';
+        fill.dataset.start = startMin;
+        fill.dataset.end = endMin;
+        fill.style.background = block.color + '44';
+        el.appendChild(fill);
+
+        const lbl = document.createElement('div');
+        lbl.className = 'planner-block-label';
+        lbl.textContent = block.label;
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'planner-block-time';
+        timeEl.textContent = `${minutesToDisplay(startMin)} – ${minutesToDisplay(endMin)}`;
+
+        el.appendChild(lbl);
+        el.appendChild(timeEl);
+        el.addEventListener('click', () => openPlannerModal(block));
+        container.appendChild(el);
+    });
+
+    // Now line
+    const nowLine = document.createElement('div');
+    nowLine.className = 'planner-now-line';
+    nowLine.id = 'planner-now-line';
+    container.appendChild(nowLine);
+
+    function updateNowLine() {
+        const isToday = plannerCurrentDate === todayStr();
+        nowLine.style.display = isToday ? 'flex' : 'none';
+        if (!isToday) return;
+        const now = new Date();
+        const mins = now.getHours() * 60 + now.getMinutes();
+        nowLine.style.top = `${mins * PLANNER_PX_PER_MIN}px`;
+
+        // Update progress fills
+        container.querySelectorAll('.planner-block-fill').forEach(fill => {
+            const s = parseInt(fill.dataset.start);
+            const e = parseInt(fill.dataset.end);
+            if (mins <= s) { fill.style.height = '0%'; }
+            else if (mins >= e) { fill.style.height = '100%'; }
+            else { fill.style.height = `${((mins - s) / (e - s)) * 100}%`; }
+        });
+
+        // Notifications
+        plannerCheckNotifications(mins);
+    }
+
+    updateNowLine();
+    plannerNowTimer = setInterval(updateNowLine, 30000);
+
+    // Scroll to current time (or 8am as fallback)
+    const now = new Date();
+    const scrollMins = plannerCurrentDate === todayStr()
+        ? Math.max(0, now.getHours() * 60 + now.getMinutes() - 120)
+        : 8 * 60;
+    setTimeout(() => { wrap.scrollTop = scrollMins * PLANNER_PX_PER_MIN; }, 50);
+}
+
+function openPlannerModal(block = null, defaultStart = '', defaultEnd = '') {
+    plannerEditingId = block ? block.id : null;
+
+    document.getElementById('pb-label').value = block ? block.label : '';
+    buildTimePicker('pb-start', block ? block.start_time : defaultStart);
+    buildTimePicker('pb-end', block ? block.end_time : defaultEnd);
+    plannerSelectedColor = block ? block.color : PLANNER_COLORS[0];
+
+    document.getElementById('pb-delete-btn').style.display = block ? 'inline-block' : 'none';
+
+    // Render color swatches
+    const picker = document.getElementById('pb-color-picker');
+    picker.innerHTML = '';
+    PLANNER_COLORS.forEach(c => {
+        const sw = document.createElement('div');
+        sw.className = 'planner-swatch' + (c === plannerSelectedColor ? ' selected' : '');
+        sw.style.background = c;
+        sw.title = c;
+        sw.onclick = () => {
+            plannerSelectedColor = c;
+            picker.querySelectorAll('.planner-swatch').forEach(s => s.classList.remove('selected'));
+            sw.classList.add('selected');
+        };
+        picker.appendChild(sw);
+    });
+
+    document.getElementById('planner-modal-backdrop').classList.remove('hidden');
+    document.getElementById('pb-label').focus();
+}
+
+function closePlannerModal() {
+    document.getElementById('planner-modal-backdrop').classList.add('hidden');
+    plannerEditingId = null;
+}
+
+async function savePlannerBlock() {
+    const label = document.getElementById('pb-label').value.trim();
+    const start_time = getTimePickerValue('pb-start');
+    const end_time = getTimePickerValue('pb-end');
+    if (!label || !start_time || !end_time) { showToast('Fill in all fields', 'error'); return; }
+    if (start_time >= end_time) { showToast('End must be after start', 'error'); return; }
+
+    const payload = { date: plannerCurrentDate, start_time, end_time, label, color: plannerSelectedColor };
+
+    try {
+        if (plannerEditingId) {
+            await apiFetch(`${API_BASE}/planner/${plannerEditingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        } else {
+            await apiFetch(`${API_BASE}/planner`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        }
+        closePlannerModal();
+        loadPlanner();
+    } catch(e) {
+        showToast('Failed to save block', 'error');
+    }
+}
+
+async function deletePlannerBlock() {
+    if (!plannerEditingId) return;
+    try {
+        await apiFetch(`${API_BASE}/planner/${plannerEditingId}`, { method: 'DELETE' });
+        closePlannerModal();
+        loadPlanner();
+    } catch(e) {
+        showToast('Failed to delete block', 'error');
+    }
+}
+
+/* ---- Planner Notifications ---- */
+const plannerNotifiedStart = new Set();
+const plannerNotifiedEnd   = new Set();
+
+async function plannerRequestPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') await Notification.requestPermission();
+}
+
+function plannerFireNotif(title, body, tag) {
+    // In-app toast always
+    showToast(`${title}: ${body}`, 'info');
+    // Browser notification if permitted
+    if (Notification.permission === 'granted') {
+        new Notification(title, { body, tag, icon: '/favicon.ico', silent: false });
+    }
+}
+
+function plannerCheckNotifications(nowMins) {
+    if (plannerCurrentDate !== todayStr()) return;
+    plannerBlocks.forEach(block => {
+        const s = timeToMinutes(block.start_time);
+        const e = timeToMinutes(block.end_time);
+        const key = block.id;
+
+        // Start notification — fire when we're within 1 min of start
+        if (!plannerNotifiedStart.has(key) && nowMins >= s && nowMins < s + 2) {
+            plannerNotifiedStart.add(key);
+            plannerFireNotif('⏰ Starting now', block.label, `start-${key}`);
+        }
+
+        // End notification — fire when we're within 1 min of end
+        if (!plannerNotifiedEnd.has(key) && nowMins >= e && nowMins < e + 2) {
+            plannerNotifiedEnd.add(key);
+            plannerFireNotif('✅ Time\'s up', block.label, `end-${key}`);
+        }
+    });
+}
+
+// Clear notification history when date changes or blocks reload
+function plannerResetNotifications() {
+    plannerNotifiedStart.clear();
+    plannerNotifiedEnd.clear();
 }

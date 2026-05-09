@@ -5,8 +5,8 @@ const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
-const DB_PATH = path.resolve(__dirname, 'pkm.db');
+const PORT = process.env.PORT || 3000;
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, 'pkm.db');
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -83,6 +83,16 @@ function initDb() {
         db.run(`ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE notes ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
+
+        // 7. PLANNER BLOCKS
+        db.run(`CREATE TABLE IF NOT EXISTS planner_blocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            label TEXT NOT NULL,
+            color TEXT DEFAULT '#05d9e8'
+        )`);
 
         console.log("Database initialized with full modern schema.");
     });
@@ -911,6 +921,48 @@ app.get('/api/stats', (req, res) => {
             res.json({ bookmarks, tasks, notes, bmByWeek, topTags, topTasks });
         })
         .catch(err => res.status(500).json({ error: err.message }));
+});
+
+/* ================= PLANNER API ================= */
+app.get('/api/planner', (req, res) => {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: 'date is required' });
+    db.all("SELECT * FROM planner_blocks WHERE date = ? ORDER BY start_time", [date], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/planner', (req, res) => {
+    const { date, start_time, end_time, label, color } = req.body;
+    if (!date || !start_time || !end_time || !label) return res.status(400).json({ error: 'Missing fields' });
+    db.run(
+        "INSERT INTO planner_blocks (date, start_time, end_time, label, color) VALUES (?, ?, ?, ?, ?)",
+        [date, start_time, end_time, label, color || '#05d9e8'],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, date, start_time, end_time, label, color: color || '#05d9e8' });
+        }
+    );
+});
+
+app.put('/api/planner/:id', (req, res) => {
+    const { start_time, end_time, label, color } = req.body;
+    db.run(
+        "UPDATE planner_blocks SET start_time=?, end_time=?, label=?, color=? WHERE id=?",
+        [start_time, end_time, label, color, req.params.id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: 'Updated' });
+        }
+    );
+});
+
+app.delete('/api/planner/:id', (req, res) => {
+    db.run("DELETE FROM planner_blocks WHERE id=?", req.params.id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'Deleted' });
+    });
 });
 
 app.listen(PORT, () => {
