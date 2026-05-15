@@ -1025,6 +1025,9 @@ function renderBookmarks() {
         folderContainer.className = currentBmView === 'grid' ? 'bm-grid-layout' : 'bm-list-layout';
         mainContainer.appendChild(folderContainer);
         renderBmPage(folderContainer, displayData, 0);
+        if (currentBmView === 'grid' && xPreviewMode === 'full') {
+            renderTwitterWidgets(folderContainer);
+        }
     } else {
         // Grouped View
         const groupedByFolder = displayData.reduce((acc, bm) => {
@@ -1371,8 +1374,10 @@ async function loadTags() {
             label.className = 'sidebar-tag-label';
             label.textContent = tag.name;
             label.onclick = () => {
+                currentSearchTerm = tag.name.toLowerCase();
                 const filterInput = document.querySelector('#view-bookmarks input[onkeyup]');
-                if (filterInput) { filterInput.value = tag.name; filterBookmarksLocally(tag.name); }
+                if (filterInput) filterInput.value = tag.name;
+                switchTab('bookmarks');
             };
 
             const count = document.createElement('span');
@@ -1602,7 +1607,7 @@ function renderTasks(tasks, plannedSet = new Set(), plannedBlockMap = {}) {
         }
 
         let dateHtml = '';
-        if (task.status === 'todo') {
+        if (task.status === 'todo' && !task.repeat) {
             const safeTitleForAttr = String(task.title || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             if (task.due_date) {
                 const planKey = `${task.due_date}::${task.title}`;
@@ -1621,7 +1626,7 @@ function renderTasks(tasks, plannedSet = new Set(), plannedBlockMap = {}) {
             } else {
                 dateHtml = `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
             }
-        } else if (task.due_date) {
+        } else if (!task.repeat && task.due_date) {
             dateHtml = `<div style="font-size:11px; color:#888;">Due: ${task.due_date}</div>`;
         }
 
@@ -1952,11 +1957,14 @@ async function loadDashboardPlannerPreview() {
     blocksEl.innerHTML = blocks.map(block => {
         const startMin = timeToMinutes(block.start_time);
         const endMin = timeToMinutes(block.end_time);
-        const isPast = endMin < nowMins;
-        const isActive = startMin <= nowMins && nowMins < endMin;
+        const crossesMidnight = endMin < startMin;
+        const effectiveEnd = crossesMidnight ? 1440 : endMin;
+        const isPast = effectiveEnd < nowMins && !crossesMidnight;
+        const isActive = crossesMidnight ? nowMins >= startMin : (startMin <= nowMins && nowMins < endMin);
+        const timeLabel = crossesMidnight ? `${minutesToDisplay(startMin)}–${minutesToDisplay(endMin)} (+1)` : `${minutesToDisplay(startMin)}–${minutesToDisplay(endMin)}`;
         return `<div class="dash-planner-block-row${isActive ? ' active' : ''}${isPast ? ' past' : ''}" onclick="switchTab('planner')">
             <span class="dash-planner-block-dot" style="background:${block.color};"></span>
-            <span class="dash-planner-block-time">${minutesToDisplay(startMin)}–${minutesToDisplay(endMin)}</span>
+            <span class="dash-planner-block-time">${timeLabel}</span>
             <span class="dash-planner-block-label">${escapeHtml(block.label)}</span>
             ${isActive ? '<span class="dash-planner-active-badge">NOW</span>' : ''}
         </div>`;
@@ -2639,7 +2647,8 @@ function renderPlannerTimeline() {
     plannerBlocks.forEach(block => {
         const startMin = timeToMinutes(block.start_time);
         const endMin = timeToMinutes(block.end_time);
-        const durationMin = endMin - startMin;
+        const crossesMidnight = endMin < startMin;
+        const durationMin = crossesMidnight ? (1440 - startMin) : (endMin - startMin);
         if (durationMin <= 0) return;
 
         const el = document.createElement('div');
@@ -2655,7 +2664,7 @@ function renderPlannerTimeline() {
         const fill = document.createElement('div');
         fill.className = 'planner-block-fill';
         fill.dataset.start = startMin;
-        fill.dataset.end = endMin;
+        fill.dataset.end = crossesMidnight ? 1440 : endMin;
         fill.style.background = block.color + '44';
         el.appendChild(fill);
 
@@ -2665,7 +2674,9 @@ function renderPlannerTimeline() {
 
         const timeEl = document.createElement('div');
         timeEl.className = 'planner-block-time';
-        timeEl.textContent = `${minutesToDisplay(startMin)} – ${minutesToDisplay(endMin)}`;
+        timeEl.textContent = crossesMidnight
+            ? `${minutesToDisplay(startMin)} – ${minutesToDisplay(endMin)} (+1)`
+            : `${minutesToDisplay(startMin)} – ${minutesToDisplay(endMin)}`;
 
         el.appendChild(lbl);
         el.appendChild(timeEl);
@@ -2752,7 +2763,7 @@ async function savePlannerBlock() {
     const start_time = getTimePickerValue('pb-start');
     const end_time = getTimePickerValue('pb-end');
     if (!label || !start_time || !end_time) { showToast('Fill in all fields', 'error'); return; }
-    if (start_time >= end_time) { showToast('End must be after start', 'error'); return; }
+    if (start_time === end_time) { showToast('End must be different from start', 'error'); return; }
 
     const payload = { date: plannerCurrentDate, start_time, end_time, label, color: plannerSelectedColor };
 
