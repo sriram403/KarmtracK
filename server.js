@@ -84,6 +84,9 @@ function initDb() {
         db.run(`ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE notes ADD COLUMN archived INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE tasks ADD COLUMN repeat TEXT`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN plan_start TEXT`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN plan_end TEXT`, () => {});
+        db.run(`ALTER TABLE tasks ADD COLUMN plan_color TEXT`, () => {});
 
         // 7. PLANNER BLOCKS
         db.run(`CREATE TABLE IF NOT EXISTS planner_blocks (
@@ -307,6 +310,17 @@ app.put('/api/tasks/:id/repeat', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "Updated" });
     });
+});
+
+app.put('/api/tasks/:id/plan-time', (req, res) => {
+    const { plan_start, plan_end, plan_color } = req.body;
+    db.run("UPDATE tasks SET plan_start=?, plan_end=?, plan_color=? WHERE id=?",
+        [plan_start || null, plan_end || null, plan_color || null, req.params.id],
+        (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Plan time updated" });
+        }
+    );
 });
 
 app.put('/api/tasks/:id', (req, res) => {
@@ -967,9 +981,40 @@ app.get('/api/stats', (req, res) => {
 app.get('/api/planner', (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ error: 'date is required' });
-    db.all("SELECT * FROM planner_blocks WHERE date = ? ORDER BY start_time", [date], (err, rows) => {
+
+    const [y, m, d] = date.split('-').map(Number);
+    const jsDate = new Date(y, m - 1, d);
+    const dayOfWeek = jsDate.getDay(); // 0=Sun..6=Sat
+    const DOW_MAP = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+
+    db.all("SELECT * FROM planner_blocks WHERE date = ? ORDER BY start_time", [date], (err, blocks) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+
+        db.all("SELECT * FROM tasks WHERE repeat IS NOT NULL AND plan_start IS NOT NULL", [], (err2, tasks) => {
+            if (err2) return res.status(500).json({ error: err2.message });
+
+            const virtualBlocks = tasks
+                .filter(t => {
+                    if (t.repeat === 'daily') return true;
+                    if (t.repeat === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5;
+                    if (t.repeat === 'weekends') return dayOfWeek === 0 || dayOfWeek === 6;
+                    return DOW_MAP[t.repeat] === dayOfWeek;
+                })
+                .filter(t => !blocks.some(b => b.label === t.title && b.date === date))
+                .map(t => ({
+                    id: `recurring-${t.id}`,
+                    date,
+                    start_time: t.plan_start,
+                    end_time: t.plan_end,
+                    label: t.title,
+                    color: t.plan_color || '#05d9e8',
+                    is_recurring: true,
+                    task_id: t.id
+                }));
+
+            const all = [...blocks, ...virtualBlocks].sort((a, b) => a.start_time.localeCompare(b.start_time));
+            res.json(all);
+        });
     });
 });
 

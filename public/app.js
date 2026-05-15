@@ -337,7 +337,18 @@ function renderDashboardCalendar(tasks) {
         num.innerText = day;
         cell.appendChild(num);
 
-        const daysTasks = tasks.filter(t => t.due_date === dateStr);
+        const cellDate = new Date(year, month, day);
+        const dayOfWeek = cellDate.getDay(); // 0=Sun,1=Mon,...,6=Sat
+        const DOW_MAP = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+        const daysTasks = tasks.filter(t => {
+            if (t.due_date === dateStr) return true;
+            if (!t.repeat) return false;
+            if (dateStr < todayStr) return false; // don't show recurring on past days
+            if (t.repeat === 'daily') return true;
+            if (t.repeat === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5;
+            if (t.repeat === 'weekends') return dayOfWeek === 0 || dayOfWeek === 6;
+            return DOW_MAP[t.repeat] === dayOfWeek;
+        });
         
         daysTasks.forEach(t => {
             const taskDiv = document.createElement('div');
@@ -1419,8 +1430,13 @@ async function loadTasks() {
         const todoEl = document.getElementById('task-list-todo');
         if (todoEl && todoEl.innerHTML === '') todoEl.innerHTML = '<div class="loading-spinner"></div>';
         const tasks = await apiFetch(`${API_BASE}/tasks`);
+        window._cachedTasks = tasks;
 
-        const dueDates = [...new Set(tasks.filter(t => t.status === 'todo' && t.due_date).map(t => t.due_date))];
+        const today = todayStr();
+        const dueDates = [...new Set([
+            ...tasks.filter(t => t.status === 'todo' && t.due_date).map(t => t.due_date),
+            ...tasks.filter(t => t.status === 'inprogress').map(t => t.due_date || today),
+        ])];
         const plannedSet = new Set();
         const plannedBlockMap = {}; // key "date::label" -> block object
         if (dueDates.length > 0) {
@@ -1499,11 +1515,21 @@ async function updateTaskRepeat(id, repeatVal) {
     loadTasks();
 }
 
-let plannerOpenedFromTask = false;
+async function clearRecurringPlanTime(id) {
+    await apiFetch(`${API_BASE}/tasks/${id}/plan-time`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan_start: null, plan_end: null, plan_color: null }) });
+    loadTasks();
+    if (document.getElementById('view-planner') && !document.getElementById('view-planner').classList.contains('hidden')) loadPlanner();
+}
 
-function planTaskInPlanner(taskTitle, dueDate) {
+let plannerOpenedFromTask = false;
+let plannerOpenedFromTaskId = null;
+let plannerOpenedFromTaskRepeat = null;
+
+function planTaskInPlanner(taskTitle, dueDate, taskId, taskRepeat) {
     plannerOpenedFromTask = true;
-    plannerCurrentDate = dueDate;
+    plannerOpenedFromTaskId = taskId || null;
+    plannerOpenedFromTaskRepeat = taskRepeat || null;
+    plannerCurrentDate = dueDate || todayStr();
     openPlannerModal(null);
     document.getElementById('pb-label').value = taskTitle;
 }
@@ -1618,7 +1644,7 @@ function renderTasks(tasks, plannedSet = new Set(), plannedBlockMap = {}) {
                         const blockId = plannedBlockMap[planKey].id;
                         return `<button onclick="event.stopPropagation(); editPlannedBlock('${blockData}')" title="Edit planned time" style="font-size:10px; color:#4caf50; background:rgba(76,175,80,0.12); border:1px solid rgba(76,175,80,0.3); border-radius:4px 0 0 4px; padding:2px 7px; cursor:pointer;">&#10003; Planned</button><button onclick="event.stopPropagation(); resetPlannedBlock(${blockId})" title="Remove planned time" style="font-size:10px; color:#888; background:rgba(76,175,80,0.08); border:1px solid rgba(76,175,80,0.3); border-left:none; border-radius:0 4px 4px 0; padding:2px 6px; cursor:pointer;">&times;</button>`;
                     })()
-                    : `<button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${task.due_date}')" title="Plan start/end time in Planner" style="font-size:10px; background:rgba(5,217,232,0.12); color:var(--accent-cyan); border:1px solid rgba(5,217,232,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Plan</button>`;
+                    : `<button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${task.due_date}', ${task.id}, '${task.repeat || ''}')" title="Plan start/end time in Planner" style="font-size:10px; background:rgba(5,217,232,0.12); color:var(--accent-cyan); border:1px solid rgba(5,217,232,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Plan</button>`;
                 dateHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <input type="date" value="${task.due_date}" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:var(--accent-cyan); font-weight:bold; cursor:pointer;">
                     ${planBtn}
@@ -1627,7 +1653,26 @@ function renderTasks(tasks, plannedSet = new Set(), plannedBlockMap = {}) {
                 dateHtml = `<input type="date" onclick="event.stopPropagation()" onchange="updateTaskDate(${task.id}, this.value)" style="font-size:11px; border:none; background:transparent; color:#666; cursor:pointer;">`;
             }
         } else if (!task.repeat && task.due_date) {
-            dateHtml = `<div style="font-size:11px; color:#888;">Due: ${task.due_date}</div>`;
+            const planKey = `${task.due_date}::${task.title}`;
+            const block = plannedBlockMap[planKey];
+            const plannedTimeHtml = block
+                ? `<span style="font-size:11px; color:var(--accent-cyan); margin-left:8px; font-weight:bold;">&#9200; ${block.start_time} – ${block.end_time}</span>`
+                : '';
+            dateHtml = `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:2px;">
+                <span style="font-size:11px; color:#888;">Due: ${task.due_date}</span>
+                ${plannedTimeHtml}
+            </div>`;
+        } else if (task.repeat) {
+            const safeTitleForAttr = String(task.title || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            if (task.plan_start && task.plan_end) {
+                dateHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <span style="font-size:11px; color:var(--accent-cyan); font-weight:bold;">&#9200; ${task.plan_start} – ${task.plan_end}</span>
+                    <button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${todayStr()}', ${task.id}, '${task.repeat}')" title="Edit planned time" style="font-size:10px; color:#4caf50; background:rgba(76,175,80,0.12); border:1px solid rgba(76,175,80,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Edit Time</button>
+                    <button onclick="event.stopPropagation(); clearRecurringPlanTime(${task.id})" title="Remove planned time" style="font-size:10px; color:#888; background:rgba(76,175,80,0.08); border:1px solid #444; border-radius:4px; padding:2px 6px; cursor:pointer;">&times;</button>
+                </div>`;
+            } else {
+                dateHtml = `<button onclick="event.stopPropagation(); planTaskInPlanner('${safeTitleForAttr}', '${todayStr()}', ${task.id}, '${task.repeat}')" title="Set daily time in Planner" style="font-size:10px; background:rgba(5,217,232,0.12); color:var(--accent-cyan); border:1px solid rgba(5,217,232,0.3); border-radius:4px; padding:2px 7px; cursor:pointer;">&#128197; Set Time</button>`;
+            }
         }
 
         const REPEAT_LABELS = { daily:'Every day', weekdays:'Weekdays', weekends:'Weekends', mon:'Every Mon', tue:'Every Tue', wed:'Every Wed', thu:'Every Thu', fri:'Every Fri', sat:'Every Sat', sun:'Every Sun' };
@@ -1923,6 +1968,7 @@ function triggerAutoSave() { clearTimeout(saveTimer); saveTimer = setTimeout(sav
 
 async function loadDashboard() {
     const tasks = await apiFetch(`${API_BASE}/tasks`);
+    window._cachedTasks = tasks;
 
     document.getElementById('dash-task-count').innerText = `${tasks.filter(t => t.status !== 'done').length}`;
 
@@ -2530,12 +2576,37 @@ async function loadPlanner() {
     plannerCurrentDate = input.value || todayStr();
     input.value = plannerCurrentDate;
     plannerResetNotifications();
-    try {
-        plannerBlocks = await apiFetch(`${API_BASE}/planner?date=${plannerCurrentDate}`);
-    } catch(e) {
-        plannerBlocks = [];
-    }
+    const [blocksRes, tasksRes] = await Promise.allSettled([
+        apiFetch(`${API_BASE}/planner?date=${plannerCurrentDate}`),
+        window._cachedTasks ? Promise.resolve(window._cachedTasks) : apiFetch(`${API_BASE}/tasks`)
+    ]);
+    plannerBlocks = blocksRes.status === 'fulfilled' ? blocksRes.value : [];
+    if (tasksRes.status === 'fulfilled') window._cachedTasks = tasksRes.value;
+    renderPlannerRecurring();
     renderPlannerTimeline();
+}
+
+function renderPlannerRecurring() {
+    const bar = document.getElementById('planner-recurring-bar');
+    const list = document.getElementById('planner-recurring-list');
+    if (!bar || !list) return;
+    const [y, m, d] = plannerCurrentDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const dayOfWeek = date.getDay();
+    const DOW_MAP = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+    const allTasks = window._cachedTasks || [];
+    const recurring = allTasks.filter(t => {
+        if (!t.repeat) return false;
+        if (t.repeat === 'daily') return true;
+        if (t.repeat === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5;
+        if (t.repeat === 'weekends') return dayOfWeek === 0 || dayOfWeek === 6;
+        return DOW_MAP[t.repeat] === dayOfWeek;
+    });
+    if (recurring.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    list.innerHTML = recurring.map(t =>
+        `<span style="display:inline-block; margin-right:10px; padding:2px 8px; background:rgba(5,217,232,0.15); border-radius:4px; color:var(--accent-cyan);">${escapeHtml(t.title)}</span>`
+    ).join('');
 }
 
 function plannerShiftDay(delta) {
@@ -2659,6 +2730,10 @@ function renderPlannerTimeline() {
         el.style.backgroundColor = block.color + '22';
         el.style.borderLeft = `3px solid ${block.color}`;
         el.style.color = block.color;
+        if (block.is_recurring) {
+            el.style.borderStyle = 'dashed';
+            el.style.opacity = '0.85';
+        }
 
         // Progress fill bar (fills as time passes through the block)
         const fill = document.createElement('div');
@@ -2680,7 +2755,16 @@ function renderPlannerTimeline() {
 
         el.appendChild(lbl);
         el.appendChild(timeEl);
-        el.addEventListener('click', () => openPlannerModal(block));
+        el.addEventListener('click', () => {
+            if (block.is_recurring) {
+                plannerOpenedFromTaskId = block.task_id;
+                plannerOpenedFromTaskRepeat = 'recurring';
+                plannerOpenedFromTask = true;
+                openPlannerModal({ ...block, id: null }); // open modal pre-filled, no block id (saves via plan-time)
+            } else {
+                openPlannerModal(block);
+            }
+        });
         container.appendChild(el);
     });
 
@@ -2730,7 +2814,7 @@ function openPlannerModal(block = null, defaultStart = '', defaultEnd = '') {
     buildTimePicker('pb-end', block ? block.end_time : defaultEnd);
     plannerSelectedColor = block ? block.color : PLANNER_COLORS[0];
 
-    document.getElementById('pb-delete-btn').style.display = block ? 'inline-block' : 'none';
+    document.getElementById('pb-delete-btn').style.display = (block || plannerOpenedFromTaskId) ? 'inline-block' : 'none';
 
     // Render color swatches
     const picker = document.getElementById('pb-color-picker');
@@ -2756,6 +2840,8 @@ function closePlannerModal() {
     document.getElementById('planner-modal-backdrop').classList.add('hidden');
     plannerEditingId = null;
     plannerOpenedFromTask = false;
+    plannerOpenedFromTaskId = null;
+    plannerOpenedFromTaskRepeat = null;
 }
 
 async function savePlannerBlock() {
@@ -2771,12 +2857,20 @@ async function savePlannerBlock() {
         if (plannerEditingId) {
             await apiFetch(`${API_BASE}/planner/${plannerEditingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         } else {
-            await apiFetch(`${API_BASE}/planner`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            if (!plannerOpenedFromTask) {
-                const existingTasks = await apiFetch(`${API_BASE}/tasks`);
-                const alreadyExists = existingTasks.some(t => t.title === label && t.due_date === plannerCurrentDate);
-                if (!alreadyExists) {
-                    await apiFetch(`${API_BASE}/tasks`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ title: label, status: 'todo', due_date: plannerCurrentDate }) });
+            // If this is a recurring task, save the plan time to the task instead of creating a one-off block
+            if (plannerOpenedFromTaskId && plannerOpenedFromTaskRepeat) {
+                await apiFetch(`${API_BASE}/tasks/${plannerOpenedFromTaskId}/plan-time`, {
+                    method: 'PUT', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ plan_start: start_time, plan_end: end_time, plan_color: plannerSelectedColor })
+                });
+            } else {
+                await apiFetch(`${API_BASE}/planner`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                if (!plannerOpenedFromTask) {
+                    const existingTasks = await apiFetch(`${API_BASE}/tasks`);
+                    const alreadyExists = existingTasks.some(t => t.title === label && t.due_date === plannerCurrentDate);
+                    if (!alreadyExists) {
+                        await apiFetch(`${API_BASE}/tasks`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ title: label, status: 'todo', due_date: plannerCurrentDate }) });
+                    }
                 }
             }
         }
@@ -2790,6 +2884,19 @@ async function savePlannerBlock() {
 }
 
 async function deletePlannerBlock() {
+    // Recurring virtual blocks: clear plan time from task instead
+    if (!plannerEditingId && plannerOpenedFromTaskId) {
+        try {
+            await apiFetch(`${API_BASE}/tasks/${plannerOpenedFromTaskId}/plan-time`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ plan_start: null, plan_end: null, plan_color: null })
+            });
+            closePlannerModal();
+            loadPlanner();
+            loadTasks();
+        } catch(e) { showToast('Failed to remove time', 'error'); }
+        return;
+    }
     if (!plannerEditingId) return;
     try {
         await apiFetch(`${API_BASE}/planner/${plannerEditingId}`, { method: 'DELETE' });
