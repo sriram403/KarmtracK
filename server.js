@@ -187,10 +187,10 @@ app.get('/api/tasks', (req, res) => {
 });
 
 app.post('/api/tasks', (req, res) => {
-    const { title, status } = req.body;
-    db.run("INSERT INTO tasks (title, status) VALUES (?, ?)", [title, status || 'todo'], function(err) {
+    const { title, status, due_date } = req.body;
+    db.run("INSERT INTO tasks (title, status, due_date) VALUES (?, ?, ?)", [title, status || 'todo', due_date || null], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, title, status });
+        res.json({ id: this.lastID, title, status, due_date });
     });
 });
 
@@ -293,6 +293,13 @@ function getNextDueDate(currentDueDate, repeat) {
     }
     return `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
 }
+
+app.put('/api/tasks/reset-dates', (req, res) => {
+    db.run("UPDATE tasks SET due_date = NULL", [], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "All due dates cleared" });
+    });
+});
 
 app.put('/api/tasks/:id/repeat', (req, res) => {
     const { repeat } = req.body;
@@ -989,6 +996,13 @@ app.put('/api/planner/:id', (req, res) => {
             res.json({ message: 'Updated' });
         }
     );
+});
+
+app.delete('/api/planner/all', (req, res) => {
+    db.run("DELETE FROM planner_blocks", [], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'All planner blocks cleared' });
+    });
 });
 
 app.delete('/api/planner/:id', (req, res) => {

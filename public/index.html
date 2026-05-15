@@ -338,7 +338,13 @@
 
             <!-- VIEW: Tasks -->
             <div id="view-tasks" class="view-section hidden">
-                <h1>Tasks</h1>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                    <h1 style="margin:0;">Tasks</h1>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="resetAllTaskDates()" title="Reset all due dates to none" style="font-size:12px; background:#2a2a2a; color:#aaa; border:1px solid #444; border-radius:6px; padding:6px 14px; cursor:pointer;">&#128197; Reset All Dates</button>
+                        <button onclick="resetAllTaskPlanning()" title="Remove all planner blocks for tasks" style="font-size:12px; background:#2a2a2a; color:#aaa; border:1px solid #444; border-radius:6px; padding:6px 14px; cursor:pointer;">&#128293; Reset All Planning</button>
+                    </div>
+                </div>
                 <div class="task-layout">
                     <div class="kanban-board">
                         <div class="column" id="col-todo">

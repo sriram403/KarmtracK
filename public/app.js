@@ -1473,6 +1473,22 @@ async function updateTaskDate(id, dateStr) {
     loadTasks();
 }
 
+async function resetAllTaskDates() {
+    const confirmed = await showConfirm('Clear due dates from all task cards?');
+    if (!confirmed) return;
+    await apiFetch(`${API_BASE}/tasks/reset-dates`, { method: 'PUT' });
+    showToast('All due dates cleared', 'success');
+    loadTasks();
+}
+
+async function resetAllTaskPlanning() {
+    const confirmed = await showConfirm('Remove all planner blocks for tasks?');
+    if (!confirmed) return;
+    await apiFetch(`${API_BASE}/planner/all`, { method: 'DELETE' });
+    showToast('All planning cleared', 'success');
+    loadTasks();
+}
+
 async function updateTaskRepeat(id, repeatVal) {
     await apiFetch(`${API_BASE}/tasks/${id}/repeat`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repeat: repeatVal || null }) });
     loadTasks();
@@ -2745,13 +2761,18 @@ async function savePlannerBlock() {
             await apiFetch(`${API_BASE}/planner/${plannerEditingId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         } else {
             await apiFetch(`${API_BASE}/planner`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (!plannerOpenedFromTask) {
+                const existingTasks = await apiFetch(`${API_BASE}/tasks`);
+                const alreadyExists = existingTasks.some(t => t.title === label && t.due_date === plannerCurrentDate);
+                if (!alreadyExists) {
+                    await apiFetch(`${API_BASE}/tasks`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ title: label, status: 'todo', due_date: plannerCurrentDate }) });
+                }
+            }
         }
         closePlannerModal();
         loadPlanner();
-        if (plannerOpenedFromTask) {
-            plannerOpenedFromTask = false;
-            loadTasks();
-        }
+        plannerOpenedFromTask = false;
+        loadTasks();
     } catch(e) {
         showToast('Failed to save block', 'error');
     }
